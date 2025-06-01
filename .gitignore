@@ -1,0 +1,17 @@
+.bin
+assets/
+
+errors.txt
+
+# Archivos temporales y swap de editores
+*~
+*.swp
+*.swo
+
+
+.vscode/
+.idea/
+*.user
+*.pro.user
+*.user.*
+*.db
