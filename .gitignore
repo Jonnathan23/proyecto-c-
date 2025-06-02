@@ -1,4 +1,6 @@
 .bin
+coreTest
+
 assets/
 
 errors.txt
