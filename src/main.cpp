@@ -8,6 +8,7 @@
 
 #include "helpers/DirectionImages.h"
 #include "helpers/Volumetrics.h"
+#include "BratsPaths.h"
 
 using namespace std;
 using namespace itk;
@@ -15,48 +16,45 @@ using namespace cv;
 
 int main() {
 
-    const string brats000 = DirectionImages0::brats0Flair;
-    const string brats000Mask = DirectionImages0::brats0Seg;
+    string optionUser = "brats0";
+    if (allBratsMap.count(optionUser) == 0) {
+        cerr << "Opción inválida: " << optionUser << endl;
+        return EXIT_FAILURE;
+    }
+    // 3) Obtener copia del struct con las rutas
+    BratsPaths paths = allBratsMap.at(optionUser);
 
-    const string brats002 = DirectionImages2::brats2Flair;
-    const string brats002Mask = DirectionImages2::brats2Seg;
-
-    cout << "Mostrar Ruta: " << brats000 << endl;
+    cout << "Rutas cargadas: "<<paths.flair << endl;
 
     Volumetrics volumetrics;
-    Volumetrics volumetrics2;
 
-    const bool result = volumetrics.loadVolumetric(brats000);
-    const bool resultMask = volumetrics.loadVolumetric(brats000Mask, "mask");
+    // 4) Cargar la imagen “flair”
+    if (!volumetrics.loadVolumetric(paths.flair, "flair")) {
+        cerr << "Error al cargar FLAIR: " << paths.flair << endl;
+        return EXIT_FAILURE;
+    }
+    cout << "FLAIR cargado: " << paths.flair << endl;
 
-    if (!result) {
-        cout << "Error al cargar el volumen" << endl;
-        return 0;
+    // 5) Cargar la máscara “seg”
+    if (!volumetrics.loadVolumetric(paths.seg, "mask")) {
+        cerr << "Error al cargar MÁSCARA: " << paths.seg << endl;
+        return EXIT_FAILURE;
+    }
+    cout << "Máscara cargada: " << paths.seg << endl;
+
+    // 6) Extraer y procesar un slice (Z=0)
+    int sliceIndex = 60;
+    volumetrics.setSliceAsMat(sliceIndex);
+    volumetrics.setSliceMaskAsMat(sliceIndex);
+
+    Mat resultado = volumetrics.processSlice();
+    if (resultado.empty()) {
+        cerr << "Error en processSlice()\n";
+        return EXIT_FAILURE;
     }
 
-    if (!resultMask) {
-        cout << "Error al cargar las mascaras" << endl;
-    }
-
-    cout << "Volumen cargado correctamente :)" << endl;
-
-    volumetrics.setSliceAsMat(65);
-    Mat secondSlice = volumetrics.getSliceAsMat();
-
-    namedWindow("Ventana_65", WINDOW_AUTOSIZE);
-    imshow("Ventana_65", secondSlice);
-
-    volumetrics.setSliceMaskAsMat(65);
-    Mat secondSliceMask = volumetrics.getSliceMaskAsMat();
-
-    namedWindow("Ventana_65_mask", WINDOW_AUTOSIZE);
-    imshow("Ventana_65_mask", secondSliceMask);
-
-    Mat sliceProcessed = volumetrics.processSlice();
-
-    namedWindow("Ventana_65_processed", WINDOW_AUTOSIZE);
-    imshow("Ventana_65_processed", sliceProcessed);
-
+    namedWindow("Resultado", WINDOW_AUTOSIZE);
+    imshow("Resultado", resultado);
     waitKey(0);
 
     return 0;
