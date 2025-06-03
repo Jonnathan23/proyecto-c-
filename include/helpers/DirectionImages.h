@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <map>
 
 
 class DirectionImages0 {
@@ -31,3 +32,15 @@ public:
     static const std::string brats3T2;
     static const std::string brats3Seg;
 };
+
+//TODO: struct BratsPaths
+
+struct BratsPaths {
+    std::string flair;
+    std::string t1;
+    std::string t1c;
+    std::string t2;
+    std::string seg;
+};
+
+extern const std::map<std::string, BratsPaths> allBratsMap;
