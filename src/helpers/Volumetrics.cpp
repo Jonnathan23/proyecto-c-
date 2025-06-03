@@ -39,6 +39,47 @@ bool Volumetrics::loadVolumetric(string path, string type) {
     return true;
 }
 
+Mat Volumetrics::processSlice() {
+    if (slice.empty() || sliceMask.empty()) {
+        cerr << "Volumetrics::processSlice: slice o sliceMask vacíos.\n";
+        return Mat();
+    }
+
+    Mat colorSlice;
+    cvtColor(slice, colorSlice, COLOR_GRAY2BGR);
+
+    Mat maksFloat;
+    sliceMask.convertTo(maksFloat, CV_32F, 1.0f / 255.0f);
+
+    const int rows = colorSlice.rows;
+    const int cols = colorSlice.cols;
+    Vec3b color;
+
+    for (int y = 0; y < rows; y++) {
+        for (int x = 0; x < cols; x++) {
+            float alpha = maksFloat.at<float>(y, x);
+
+            if (alpha <= 0.0f) {
+                continue;
+            }
+            color = colorSlice.at<Vec3b>(y, x);
+
+            uchar originalB = color[0];
+            uchar originalG = color[1];
+            uchar originalR = color[2];
+
+            float blendedR = (1.0f - alpha) * originalR + alpha * 255.0f;
+            uchar newR = cv::saturate_cast<uchar>(blendedR);
+            // Asignar de vuelta en el Mat de color
+            colorSlice.at<cv::Vec3b>(y, x) = cv::Vec3b(originalB, originalG, newR);
+        }
+    }
+
+    return colorSlice;
+}
+
+//* Sets
+
 void Volumetrics::setSliceAsMat(int sliceIndex) {
     if (!volumetricImage) {
         cerr << "Volumetrics::setSliceAsMat: volumetricImage no está cargado.\n";
@@ -201,6 +242,8 @@ void Volumetrics::setSliceMaskAsMat(int sliceIndex) {
             -minVal * 255.0 / (maxVal - minVal));
     }
 }
+
+//* Gets
 
 Mat Volumetrics::getSliceAsMat() {
     return slice;

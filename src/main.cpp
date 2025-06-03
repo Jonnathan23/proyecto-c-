@@ -52,6 +52,10 @@ int main() {
     namedWindow("Ventana_65_mask", WINDOW_AUTOSIZE);
     imshow("Ventana_65_mask", secondSliceMask);
 
+    Mat sliceProcessed = volumetrics.processSlice();
+
+    namedWindow("Ventana_65_processed", WINDOW_AUTOSIZE);
+    imshow("Ventana_65_processed", sliceProcessed);
 
     waitKey(0);
 
