@@ -1,10 +1,11 @@
 # -----------------------------------------------------------------------------
-# Makefile unificado para MiProyectoVisión
-# Usa las rutas de OpenCV e ITK que ya tienes, y añade un target “main”
-# para compilar y ejecutar la lógica sin Qt (solo OpenCV + ITK + VNL + itksys + NIfTI).
+# Makefile recursivo para MiProyectoVisión
+# - Encuentra todos los .cpp en src/ y todos los .h en include/
+# - Target "main" compila solo CORE_CPP (Helpers + Vision + main.cpp)
+# - Target "all" compila TODO (incluye UI con Qt)
 # -----------------------------------------------------------------------------
 
-# 1) Rutas de OpenCV (tal como las tienes)
+# 1) Rutas a librerías externas
 OpenCvIncludeDir := /home/visionups/aplicaciones/Librerias/opencv/opencvi/include/opencv4
 OpenCvLibraryDir := /home/visionups/aplicaciones/Librerias/opencv/opencvi/lib
 OpenCvLibraries  := \
@@ -15,12 +16,9 @@ OpenCvLibraries  := \
     -lopencv_video \
     -lopencv_videoio
 
-# 2) Rutas de ITK 5.3 (tal como las tienes)
-ItkIncludeDir    := /usr/include/ITK-5.3
-ItkLibraryDir    := /usr/lib/x86_64-linux-gnu
-
-# Módulos que usaremos de ITK 5.3
-ItkLibraries     := \
+ItkIncludeDir   := /usr/include/ITK-5.3
+ItkLibraryDir   := /usr/lib/x86_64-linux-gnu
+ItkLibraries    := \
     -lITKCommon-5.3 \
     -lITKMetaIO-5.3 \
     -lITKIOImageBase-5.3 \
@@ -34,117 +32,93 @@ ItkLibraries     := \
     -lITKIOSpatialObjects-5.3 \
     -lITKIOStimulate-5.3
 
-#  Agregamos el módulo NIfTI para que NiftiImageIOFactory esté disponible
-ItkNiftiLibrary  := -lITKIONIFTI-5.3
+# Librería NIfTI y VNL y itksys
+ItkNiftiLibrary := -lITKIONIFTI-5.3
+ItkVnlLibraries := -litkvnl-5.3 -litkvnl_algo-5.3
+ItkSysLibrary   := -litksys-5.3
 
-#  Añadimos las librerías VNL (necesarias para ciertos algoritmos de ITK)
-ItkVnlLibraries  := -litkvnl-5.3 -litkvnl_algo-5.3
+# 2) Flags de compilación
+CXX      := g++
+CXXFLAGS := -std=c++17 -Wall \
+            -I$(OpenCvIncludeDir) \
+            -I$(ItkIncludeDir) \
+            `pkg-config --cflags Qt5Widgets` \
+            -Iinclude
 
-#  Añadimos la librería itksys (SystemToolsManager, etc.)
-ItkSysLibrary    := -litksys-5.3
-
-# 3) Flags de compilación de C++
-CXX              := g++
-CXXFLAGS         := -std=c++17 -Wall \
-                     -I$(OpenCvIncludeDir) \
-                     -I$(ItkIncludeDir) \
-                     `pkg-config --cflags Qt5Widgets`
-
-# 4) Flags de enlace para build completo (Qt + OpenCV + ITK)
-LinkerFlags      := \
+# 3) Flags de enlace para build completo (Qt + OpenCV + ITK + etc.)
+LinkerFlags := \
     -L$(OpenCvLibraryDir) $(OpenCvLibraries) \
-    -L$(ItkLibraryDir)     \
+    -L$(ItkLibraryDir) \
         $(ItkLibraries) \
         $(ItkNiftiLibrary) \
         $(ItkVnlLibraries) \
         $(ItkSysLibrary) \
     `pkg-config --libs Qt5Widgets`
 
-# 5) Flags de enlace para target “main” (solo OpenCV + ITK + VNL + itksys + NIfTI, sin Qt)
-LinkerFlagsMain  := \
+# 4) Flags de enlace para target “main” (solo OpenCV + ITK + NIfTI + VNL + itksys, sin Qt)
+LinkerFlagsMain := \
     -L$(OpenCvLibraryDir) $(OpenCvLibraries) \
-    -L$(ItkLibraryDir)     \
+    -L$(ItkLibraryDir) \
         $(ItkLibraries) \
         $(ItkNiftiLibrary) \
         $(ItkVnlLibraries) \
         $(ItkSysLibrary)
 
-# 6) Estructura de carpetas
-SRC_DIR          := src
-HELPERS_DIR      := $(SRC_DIR)/Helpers
-VISION_DIR       := $(SRC_DIR)/Vision
-UI_DIR           := ui
+# 5) Carpetas del proyecto
+SRC_DIR     := src
+INCLUDE_DIR := include
+UI_DIR      := ui
 
-# 7) Archivos fuente y headers
-HELPER_SRCS      := $(wildcard $(HELPERS_DIR)/*.cpp)
-VISION_SRCS      := $(wildcard $(VISION_DIR)/*.cpp)
-UI_SRCS          := $(UI_DIR)/MainWindow.cpp
-MAIN_SRC         := $(SRC_DIR)/main.cpp
+# 6) Encontrar todos los .cpp y .h recursivamente
+ALL_CPP := $(shell find $(SRC_DIR) -type f -name '*.cpp')
+ALL_HDR := $(shell find $(INCLUDE_DIR) -type f -name '*.h')
 
-SOURCES          := $(HELPER_SRCS) $(VISION_SRCS) $(UI_SRCS) $(MAIN_SRC)
+# 7) Separar fuentes de UI (Qt) de las fuentes core
+UI_CPP   := $(shell find $(SRC_DIR)/UI -type f -name '*.cpp')
+CORE_CPP := $(filter-out $(UI_CPP), $(ALL_CPP))
 
-HELPER_HEADERS   := $(wildcard $(HELPERS_DIR)/*.h)
-VISION_HEADERS   := $(wildcard $(VISION_DIR)/*.h)
+# 8) Convertir listas de fuentes a listas de objetos (.o)
+ALL_OBJS  := $(ALL_CPP:.cpp=.o)
+CORE_OBJS := $(CORE_CPP:.cpp=.o)
 
-# 8) Archivos .ui y headers generados por uic
-UI_FILES         := $(UI_DIR)/MainWindow.ui
-UIC_HEADERS      := $(UI_FILES:$(UI_DIR)/%.ui=$(UI_DIR)/ui_%.h)
-
-# 9) Cada .cpp produce un .o (para el build con Qt)
-OBJECTS          := $(SOURCES:.cpp=.o)
-
-# 10) Nombre del ejecutable completo (con Qt)
-TARGET           := MiProyectoQt
+# 9) Nombre del ejecutable
+TARGET := Proyecto_saquicela
 
 # -----------------------------------------------------------------------------
-.PHONY: all clean main
+.PHONY: all main clean
 
-# ==============================================
-#   Target “all” → compila el proyecto completo
-#   (Qt + OpenCV + ITK + itksys + NIfTI)
-# ==============================================
+# =====================================================================
+# Target “all” → compila TODO: UI + Helpers + Vision + main.cpp (con Qt)
+# =====================================================================
 all: $(TARGET)
 
-# -----------------------------------------------------------------------------
-#   1) Generar headers de Qt a partir de .ui
-#      ui/MainWindow.ui → ui/ui_MainWindow.h
-# -----------------------------------------------------------------------------
+# 9a) Regla para generar ui/ui_MainWindow.h a partir de ui/MainWindow.ui
 $(UI_DIR)/ui_%.h: $(UI_DIR)/%.ui
 	@echo " ---> Generando $@ a partir de $<"
 	uic $< -o $@
 
-# -----------------------------------------------------------------------------
-#   2) Compilar cada .cpp → .o
-#      (depende de los headers generados por uic y los headers Helpers/Vision)
-# -----------------------------------------------------------------------------
-%.o: %.cpp $(UIC_HEADERS) $(HELPER_HEADERS) $(VISION_HEADERS)
+# 9b) Compilar cada .cpp → .o (para ALL_OBJS)
+%.o: %.cpp $(ALL_HDR) $(shell find $(UI_DIR) -type f -name 'ui_*.h')
 	@echo "Compilando $<"
 	$(CXX) $(CXXFLAGS) \
-	      -Iinclude \
+	      -I$(INCLUDE_DIR) \
 	      -I$(UI_DIR) \
-	      -I$(HELPERS_DIR) \
-	      -I$(VISION_DIR) \
 	      -c $< -o $@
 
-# -----------------------------------------------------------------------------
-#   3) Link final para build completo: unir todos los .o y enlazar Qt, OpenCV, ITK, itksys, NIfTI
-# -----------------------------------------------------------------------------
-$(TARGET): $(UIC_HEADERS) $(OBJECTS)
+# 9c) Link final: todos los objetos + Qt + OpenCV + ITK
+$(TARGET): $(shell find $(UI_DIR) -type f -name 'ui_*.h') $(ALL_OBJS)
 	@echo "Linkeando $@"
-	$(CXX) $(OBJECTS) -o $@ $(LinkerFlags)
+	$(CXX) $(ALL_OBJS) -o $@ $(LinkerFlags)
 
-# =============================================================================
-#   Target “main” → compilar y ejecutar solo la lógica de Helpers/Vision + main.cpp
-#                     (sin Qt, solo OpenCV + ITK + VNL + itksys + NIfTI)
-#
-#   Genera un ejecutable “coreTest” que es útil para probar la parte de visión
-#   sin depender de la interfaz Qt. Si falla algo, no se mezcla con el código Qt.
-# =============================================================================
+# =====================================================================
+# Target “main” → compila SOLO CORE_OBJS (Helpers + Vision + main.cpp),
+# sin UI ni Qt. Sirve para depurar la parte de Vision/Itk/OpenCV.
+# =====================================================================
 main:
-	@echo "Compilando sin interfaz Qt (OpenCV + ITK + itksys + NIfTI) → coreTest …"
+	@echo "Compilando sin interfaz Qt (OpenCV + ITK + NIfTI + VNL + itksys) → coreTest …"
 	$(CXX) $(CXXFLAGS) \
-	      $(HELPER_SRCS) $(VISION_SRCS) $(MAIN_SRC) \
-	      -Iinclude -I$(HELPERS_DIR) -I$(VISION_DIR) \
+	      $(CORE_CPP) \
+	      -I$(INCLUDE_DIR) \
 	      -o coreTest \
 	      $(LinkerFlagsMain) \
 	      && echo "  → coreTest compilado correctamente." \
@@ -152,10 +126,11 @@ main:
 	@echo "Ejecutando ./coreTest …"
 	@./coreTest
 
-# -----------------------------------------------------------------------------
-#   4) Limpiar binarios, objetos y headers generados por uic
-# -----------------------------------------------------------------------------
+# =====================================================================
+# Target “clean” → elimina todos los objetos (.o), los headers generados
+# por uic ( ui/ui_*.h ), y los ejecutables MiProyectoQt y coreTest
+# =====================================================================
 clean:
 	@echo "Limpiando objetos y ejecutables…"
-	rm -f $(OBJECTS) $(UI_DIR)/ui_*.h $(TARGET) coreTest
+	rm -f $(ALL_OBJS) $(UI_DIR)/ui_*.h $(TARGET) coreTest
 	@echo "¡Limpieza completada!"
