@@ -13,12 +13,13 @@ class Volumetrics {
     Volumetrics();
     ~Volumetrics();
 
-    bool loadVolumetric(std::string path);
+    bool loadVolumetric(std::string path, std::string type = "flair");
 
     void setSliceAsMat(int sliceIndex);
+    void setSliceMaskAsMat(int sliceIndex);
+
     cv::Mat getSliceAsMat();
 
-    void setSliceMaskAsMat(int sliceIndex);
     cv::Mat getSliceMaskAsMat();
 
     cv::Mat processSlice();
@@ -27,6 +28,7 @@ class Volumetrics {
 
   private:
     VolumetricImagePointer volumetricImage;
+    VolumetricImagePointer volumetricImageMask;
     //? modificar para guardar uno o más slices y ya no se manejara por indice??
     cv::Mat slice;
     //? modificar para guardar uno o más máscaras

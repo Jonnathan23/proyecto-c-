@@ -6,8 +6,8 @@
 
 #include <opencv2/opencv.hpp>
 
-#include "DirectionImages.h"
-#include "Volumetrics.h"
+#include "helpers/DirectionImages.h"
+#include "helpers/Volumetrics.h"
 
 using namespace std;
 using namespace itk;
@@ -16,7 +16,10 @@ using namespace cv;
 int main() {
 
     const string brats000 = DirectionImages0::brats0Flair;
+    const string brats000Mask = DirectionImages0::brats0Seg;
+
     const string brats002 = DirectionImages2::brats2Flair;
+    const string brats002Mask = DirectionImages2::brats2Seg;
 
     cout << "Mostrar Ruta: " << brats000 << endl;
 
@@ -24,19 +27,18 @@ int main() {
     Volumetrics volumetrics2;
 
     const bool result = volumetrics.loadVolumetric(brats000);
-    const bool result2 = volumetrics2.loadVolumetric(brats002);
+    const bool resultMask = volumetrics.loadVolumetric(brats000Mask, "mask");
 
-    if (!result && !result2) {
+    if (!result) {
         cout << "Error al cargar el volumen" << endl;
+        return 0;
+    }
+
+    if (!resultMask) {
+        cout << "Error al cargar las mascaras" << endl;
     }
 
     cout << "Volumen cargado correctamente :)" << endl;
-
-    volumetrics.setSliceAsMat(45);
-    Mat slice = volumetrics.getSliceAsMat();
-
-    namedWindow("Ventana", WINDOW_AUTOSIZE);
-    imshow("Ventana", slice);
 
     volumetrics.setSliceAsMat(65);
     Mat secondSlice = volumetrics.getSliceAsMat();
@@ -44,18 +46,12 @@ int main() {
     namedWindow("Ventana_65", WINDOW_AUTOSIZE);
     imshow("Ventana_65", secondSlice);
 
+    volumetrics.setSliceMaskAsMat(65);
+    Mat secondSliceMask = volumetrics.getSliceMaskAsMat();
 
-    volumetrics2.setSliceAsMat(45);
-    Mat slice2 = volumetrics2.getSliceAsMat();
+    namedWindow("Ventana_65_mask", WINDOW_AUTOSIZE);
+    imshow("Ventana_65_mask", secondSliceMask);
 
-    namedWindow("Ventana2", WINDOW_AUTOSIZE);
-    imshow("Ventana2", slice2);
-
-    volumetrics2.setSliceAsMat(65);
-    Mat secondSlice2 = volumetrics2.getSliceAsMat();
-
-    namedWindow("Ventana2_65", WINDOW_AUTOSIZE);
-    imshow("Ventana2_65", secondSlice2);
 
     waitKey(0);
 
