@@ -8,7 +8,6 @@
 
 #include "helpers/DirectionImages.h"
 #include "helpers/Volumetrics.h"
-#include "BratsPaths.h"
 
 using namespace std;
 using namespace itk;
