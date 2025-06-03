@@ -36,11 +36,11 @@ public:
 //TODO: struct BratsPaths
 
 struct BratsPaths {
-    std::string flair;
+    std::string standar;
     std::string t1;
     std::string t1c;
     std::string t2;
-    std::string seg;
+    std::string mask;
 };
 
 extern const std::map<std::string, BratsPaths> allBratsMap;
