@@ -5,27 +5,33 @@
 #include <opencv2/core.hpp>
 #include <string>
 
-
 using VolumetricImageType = itk::Image<float, 3>;
 using VolumetricImagePointer = VolumetricImageType::Pointer;
 
 class Volumetrics {
-public:
+  public:
     Volumetrics();
     ~Volumetrics();
 
     bool loadVolumetric(std::string path);
 
-    cv::Mat setSliceAsMat(int slice);
-    cv::Mat getSliceAsMat(int slice);
+    void setSliceAsMat(int sliceIndex);
+    cv::Mat getSliceAsMat();
 
-    cv::Mat setSliceMaskAsMat(int slice);
-    cv::Mat getSliceMaskAsMat(int slice);
+    void setSliceMaskAsMat(int sliceIndex);
+    cv::Mat getSliceMaskAsMat();
 
     cv::Mat processSlice();
 
-private:
+    // TODO: añadir filtros al slices
+
+  private:
     VolumetricImagePointer volumetricImage;
+    //? modificar para guardar uno o más slices y ya no se manejara por indice??
     cv::Mat slice;
+    //? modificar para guardar uno o más máscaras
     cv::Mat sliceMask;
+
+    //? modificar para guardar uno o más slices y ya no se manejara por indice??
+    //?Vector<cv::Mat> processedSlice;
 };
