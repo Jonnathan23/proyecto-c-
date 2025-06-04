@@ -15,7 +15,7 @@ using namespace cv;
 
 int main() {
 
-    string optionUser = "brats0";
+    string optionUser = "brats2";
     if (allBratsMap.count(optionUser) == 0) {
         cerr << "Opción inválida: " << optionUser << endl;
         return EXIT_FAILURE;
@@ -23,7 +23,7 @@ int main() {
     // 3) Obtener copia del struct con las rutas
     BratsPaths paths = allBratsMap.at(optionUser);
 
-    cout << "Rutas cargadas: "<<paths.standar << endl;
+    cout << "Rutas cargadas: " << paths.standar << endl;
 
     Volumetrics volumetrics;
 
@@ -46,14 +46,23 @@ int main() {
     volumetrics.setSliceAsMat(sliceIndex);
     volumetrics.setSliceMaskAsMat(sliceIndex);
 
-    Mat resultado = volumetrics.processSlice();
-    if (resultado.empty()) {
+    Mat imageProcessed = volumetrics.processSlice();
+    Mat imageMask = volumetrics.getSliceMaskAsMat();
+    Mat originalImage = volumetrics.getSliceAsMat();
+
+    if (imageProcessed.empty()) {
         cerr << "Error en processSlice()\n";
         return EXIT_FAILURE;
     }
 
-    namedWindow("Resultado", WINDOW_AUTOSIZE);
-    imshow("Resultado", resultado);
+    namedWindow("imageProcessed", WINDOW_AUTOSIZE);
+    imshow("imageProcessed", imageProcessed);
+
+    namedWindow("Original", WINDOW_AUTOSIZE);
+    imshow("Original", originalImage);
+
+    namedWindow("Mask", WINDOW_AUTOSIZE);
+    imshow("Mask", imageMask);
     waitKey(0);
 
     return 0;

@@ -13,6 +13,12 @@ using namespace cv;
 Volumetrics::Volumetrics() {}
 Volumetrics::~Volumetrics() {}
 
+/**
+ * @brief Cargar un volumen NIfTI
+ * @param path Ruta del volumen NIfTI
+ * @param type Tipo de volumen a cargar
+ * @return true si se pudo cargar el volumen, false si no
+ */
 bool Volumetrics::loadVolumetric(string path, string type) {
     NiftiImageIOFactory::RegisterOneFactory();
 
@@ -39,6 +45,10 @@ bool Volumetrics::loadVolumetric(string path, string type) {
     return true;
 }
 
+/**
+ * @brief Procesar un slice resaltando en color la zona afectada, metodo principal
+ * @return Mat con el slice resaltado
+ */
 Mat Volumetrics::processSlice() {
     if (slice.empty() || sliceMask.empty()) {
         cerr << "Volumetrics::processSlice: slice o sliceMask vacíos.\n";
@@ -78,8 +88,147 @@ Mat Volumetrics::processSlice() {
     return colorSlice;
 }
 
-//* Sets
+/**
+ * @brief Aplicar umbral a un slice
+ * @param sliceProcessed Slice procesado por el metodo principal
+ * @param umbral Umbral a aplicar
+ */
+Mat Volumetrics::aplyThreshold(cv::Mat sliceProcessed, double umbral) {
 
+    Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
+    Mat grayImage;
+    Mat thresholded;
+
+    cvtColor(imageToProcess, grayImage, COLOR_BGR2GRAY);
+
+    threshold(grayImage, thresholded, umbral, 255, THRESH_BINARY);
+    return thresholded;
+}
+
+/**
+ * @brief Aplicar umbral binario a un slice
+ */
+Mat Volumetrics::aplyUmbralBinary() {
+    Mat imageToProcess = sliceMask.clone();
+
+    Mat imageHSV;
+    cvtColor(imageToProcess, imageHSV, COLOR_BGR2HSV);
+
+    cv::Scalar lowerBoundHSV(0, 0, 60);
+    cv::Scalar upperBoundHSV(180, 30, 70);
+
+    cv::Mat maskBinary;
+    cv::inRange(imageHSV, lowerBoundHSV, upperBoundHSV, maskBinary);
+
+    return maskBinary;
+}
+
+Mat Volumetrics::aplyContratstStreching(Mat sliceProcessed) {
+
+    Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
+
+    std::vector<cv::Mat> separateChannels;
+    if (sliceProcessed.channels() == 1) {
+        // Imagen ya en escala de grises
+        separateChannels.push_back(sliceProcessed);
+    } else {
+        // Imagen color: separamos en B, G y R
+        cv::split(sliceProcessed, separateChannels);
+    }
+
+    for (size_t i = 0; i < separateChannels.size(); i++) {
+        double minVal = 0.0, maxVal = 0.0;
+        // Encontrar mínimo y máximo en el canal i
+        cv::minMaxLoc(separateChannels[i], &minVal, &maxVal);
+        // Si todos los píxeles tienen el mismo valor, no hay nada que estirar
+        if (minVal == maxVal) {
+            // Dejamos ese canal tal cual
+            continue;
+        }
+        // Calculamos escala y desplazamiento
+        double escala = 255.0 / (maxVal - minVal);
+        double desplazamiento = -minVal * escala;
+        // Convertimos el canal en un nuevo Mat estirado
+        cv::Mat canalStretched;
+        separateChannels[i].convertTo(canalStretched, CV_8U, escala, desplazamiento);
+        // Reemplazamos el canal original por el canal estirado
+        separateChannels[i] = canalStretched;
+    }
+
+    cv::Mat finalImage;
+    if (separateChannels.size() == 1) {
+        // Solo había un canal (gris)
+        finalImage = separateChannels[0];
+    } else {
+        // Volvemos a mezclar B, G y R
+        cv::merge(separateChannels, finalImage);
+    }
+
+    return finalImage;
+}
+
+Mat Volumetrics::aplyBitWiseOperation(Mat sliceProcessed1, string type) {
+
+    Mat imageToProcess = (sliceProcessed1.empty()) ? slice.clone() : sliceProcessed1.clone();
+
+    Mat result;
+    if (type == "NOT") {
+        bitwise_not(imageToProcess, result);
+        return result;
+    }
+
+    if (type == "AND") {
+        bitwise_and(imageToProcess, sliceMask, result);
+        return result;
+    }
+
+    if (type == "OR") {
+        bitwise_or(imageToProcess, sliceMask, result);
+        return result;
+    }
+
+    bitwise_xor(imageToProcess, sliceMask, result);
+    return result;
+}
+
+Mat Volumetrics::aplyCanny(Mat sliceProcessed) {
+    Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
+
+    Mat grayImage;
+
+    cvtColor(imageToProcess, grayImage, COLOR_BGR2GRAY);
+
+    Mat blurredSlice;
+    GaussianBlur(grayImage, blurredSlice, cv::Size(5, 5), 1.5);
+
+    // 4) Definir umbrales para Canny
+    double lowerThreshold = 50.0;  // Umbral inferior
+    double upperThreshold = 150.0; // Umbral superior
+
+    // 5) Aplicar detector de bordes Canny
+    Mat edges;
+    Canny(blurredSlice, edges, lowerThreshold, upperThreshold);
+
+    return edges;
+}
+
+Mat Volumetrics::adjustBrightness(Mat sliceProcessed) {
+
+    Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
+
+    int valueBrightness = 50;
+
+    Mat adjustedImage;
+    addWeighted(imageToProcess, 1.0, Mat(), 0.0, valueBrightness, adjustedImage);
+}
+
+
+//* |------------| | Sets | |------------|
+
+/**
+ * @brief Setear la región de un slice en Z = sliceIndex y lo guarda en this->slice
+ * @param sliceIndex Índice Z del slice a extraer
+ */
 void Volumetrics::setSliceAsMat(int sliceIndex) {
     if (!volumetricImage) {
         cerr << "Volumetrics::setSliceAsMat: volumetricImage no está cargado.\n";
@@ -165,6 +314,10 @@ void Volumetrics::setSliceAsMat(int sliceIndex) {
     }
 }
 
+/**
+ * @brief Extrae un slice del volumen de máscaras y lo guarda en this->sliceMask
+ * @param sliceIndex Índice Z del slice a extraer
+ */
 void Volumetrics::setSliceMaskAsMat(int sliceIndex) {
     // 1) Verificar que volumetricImageMask no sea nulo
     if (!volumetricImageMask) {
@@ -243,7 +396,7 @@ void Volumetrics::setSliceMaskAsMat(int sliceIndex) {
     }
 }
 
-//* Gets
+//* |------------| | Gets | |------------|
 
 Mat Volumetrics::getSliceAsMat() {
     return slice;

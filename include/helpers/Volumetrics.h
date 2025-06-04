@@ -24,7 +24,19 @@ class Volumetrics {
 
     cv::Mat processSlice();
 
-    // TODO: añadir filtros al slices
+    // écnicas de visión artificial
+
+    cv::Mat aplyThreshold(cv::Mat sliceProcessed = cv::Mat(), double umbral = 0.0);
+
+    cv::Mat aplyContratstStreching(cv::Mat sliceProcessed = cv::Mat());
+
+    cv::Mat aplyUmbralBinary();
+
+    cv::Mat aplyBitWiseOperation(cv::Mat sliceProcessed1 = cv::Mat(), std::string type = "AND");
+
+    cv::Mat aplyCanny(cv::Mat sliceProcessed = cv::Mat());
+
+    cv::Mat adjustBrightness(cv::Mat sliceProcessed = cv::Mat());
 
   private:
     VolumetricImagePointer volumetricImage;
