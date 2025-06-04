@@ -15,7 +15,7 @@ using namespace cv;
 
 int main() {
 
-    string optionUser = "brats2";
+    string optionUser = "brats0";
     if (allBratsMap.count(optionUser) == 0) {
         cerr << "Opción inválida: " << optionUser << endl;
         return EXIT_FAILURE;
@@ -50,10 +50,19 @@ int main() {
     Mat imageMask = volumetrics.getSliceMaskAsMat();
     Mat originalImage = volumetrics.getSliceAsMat();
 
+    //* Filters
+    Mat threshold = volumetrics.aplyThreshold(); // listo
+    Mat contrast = volumetrics.aplyContratstStreching(originalImage); // listo
+    Mat binary = volumetrics.aplyUmbralBinary(); //listo
+    Mat bitwise = volumetrics.aplyBitWiseOperation( Mat(),"AND"); //listo
+    Mat canny = volumetrics.aplyCanny();
+    //Mat brightness = volumetrics.adjustBrightness(imageProcessed);
+
     if (imageProcessed.empty()) {
         cerr << "Error en processSlice()\n";
         return EXIT_FAILURE;
     }
+
 
     namedWindow("imageProcessed", WINDOW_AUTOSIZE);
     imshow("imageProcessed", imageProcessed);
@@ -63,6 +72,27 @@ int main() {
 
     namedWindow("Mask", WINDOW_AUTOSIZE);
     imshow("Mask", imageMask);
+
+    namedWindow("Threshold", WINDOW_AUTOSIZE);
+    imshow("Threshold", threshold);
+
+    
+    namedWindow("Contrast", WINDOW_AUTOSIZE);
+    imshow("Contrast", contrast);
+
+    namedWindow("Binary", WINDOW_AUTOSIZE);
+    imshow("Binary", binary);
+
+    namedWindow("Bitwise", WINDOW_AUTOSIZE);
+    imshow("Bitwise", bitwise);
+
+    namedWindow("Canny", WINDOW_AUTOSIZE);
+    imshow("Canny", canny);
+/*
+    namedWindow("Brightness", WINDOW_AUTOSIZE);
+    */
+
+
     waitKey(0);
 
     return 0;

@@ -49,14 +49,16 @@ bool Volumetrics::loadVolumetric(string path, string type) {
  * @brief Procesar un slice resaltando en color la zona afectada, metodo principal
  * @return Mat con el slice resaltado
  */
-Mat Volumetrics::processSlice() {
+Mat Volumetrics::processSlice(Mat sliceToProcess) {
     if (slice.empty() || sliceMask.empty()) {
         cerr << "Volumetrics::processSlice: slice o sliceMask vacíos.\n";
         return Mat();
     }
 
+    Mat sliceProcessed = (sliceToProcess.empty()) ? slice.clone() : sliceToProcess.clone();
+
     Mat colorSlice;
-    cvtColor(slice, colorSlice, COLOR_GRAY2BGR);
+    cvtColor(sliceProcessed, colorSlice, COLOR_GRAY2BGR);
 
     Mat maksFloat;
     sliceMask.convertTo(maksFloat, CV_32F, 1.0f / 255.0f);
@@ -99,7 +101,7 @@ Mat Volumetrics::aplyThreshold(cv::Mat sliceProcessed, double umbral) {
     Mat grayImage;
     Mat thresholded;
 
-    cvtColor(imageToProcess, grayImage, COLOR_BGR2GRAY);
+    imageToProcess.channels() == 3 ? cvtColor(imageToProcess, grayImage, COLOR_BGR2GRAY) : imageToProcess.copyTo(grayImage);
 
     threshold(grayImage, thresholded, umbral, 255, THRESH_BINARY);
     return thresholded;
@@ -111,14 +113,22 @@ Mat Volumetrics::aplyThreshold(cv::Mat sliceProcessed, double umbral) {
 Mat Volumetrics::aplyUmbralBinary() {
     Mat imageToProcess = sliceMask.clone();
 
+    if (imageToProcess.channels() == 1) {
+        Mat tmp;
+        cvtColor(imageToProcess, tmp, COLOR_GRAY2BGR);
+        imageToProcess = tmp;
+    }
+
     Mat imageHSV;
     cvtColor(imageToProcess, imageHSV, COLOR_BGR2HSV);
 
-    cv::Scalar lowerBoundHSV(0, 0, 60);
-    cv::Scalar upperBoundHSV(180, 30, 70);
+    Scalar lowerBoundHSV(0, 0, 60);
+    Scalar upperBoundHSV(180, 30, 70);
 
-    cv::Mat maskBinary;
-    cv::inRange(imageHSV, lowerBoundHSV, upperBoundHSV, maskBinary);
+    Mat maskBinary;
+    inRange(imageHSV, lowerBoundHSV, upperBoundHSV, maskBinary);
+
+    // TODO: Redactar en el informe que si devuelve una imagen negra no hay zona "Muerta"
 
     return maskBinary;
 }
@@ -127,41 +137,40 @@ Mat Volumetrics::aplyContratstStreching(Mat sliceProcessed) {
 
     Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
 
-    std::vector<cv::Mat> separateChannels;
-    if (sliceProcessed.channels() == 1) {
-        // Imagen ya en escala de grises
-        separateChannels.push_back(sliceProcessed);
-    } else {
-        // Imagen color: separamos en B, G y R
-        cv::split(sliceProcessed, separateChannels);
+    if (imageToProcess.empty()) {
+        return Mat();
     }
+
+    vector<Mat> separateChannels;
+
+    imageToProcess.channels() == 1 ? separateChannels.push_back(imageToProcess) : split(imageToProcess, separateChannels);
 
     for (size_t i = 0; i < separateChannels.size(); i++) {
         double minVal = 0.0, maxVal = 0.0;
-        // Encontrar mínimo y máximo en el canal i
-        cv::minMaxLoc(separateChannels[i], &minVal, &maxVal);
-        // Si todos los píxeles tienen el mismo valor, no hay nada que estirar
+        minMaxLoc(separateChannels[i], &minVal, &maxVal);
+
         if (minVal == maxVal) {
-            // Dejamos ese canal tal cual
             continue;
         }
-        // Calculamos escala y desplazamiento
+
         double escala = 255.0 / (maxVal - minVal);
         double desplazamiento = -minVal * escala;
-        // Convertimos el canal en un nuevo Mat estirado
-        cv::Mat canalStretched;
+
+        Mat canalStretched;
         separateChannels[i].convertTo(canalStretched, CV_8U, escala, desplazamiento);
-        // Reemplazamos el canal original por el canal estirado
+
+        // Reemplazamos el canal original por la versión estirada
         separateChannels[i] = canalStretched;
     }
 
-    cv::Mat finalImage;
+    // Reconstruir la imagen final a partir de esos canales
+    Mat finalImage;
     if (separateChannels.size() == 1) {
         // Solo había un canal (gris)
         finalImage = separateChannels[0];
     } else {
         // Volvemos a mezclar B, G y R
-        cv::merge(separateChannels, finalImage);
+        merge(separateChannels, finalImage);
     }
 
     return finalImage;
@@ -171,6 +180,19 @@ Mat Volumetrics::aplyBitWiseOperation(Mat sliceProcessed1, string type) {
 
     Mat imageToProcess = (sliceProcessed1.empty()) ? slice.clone() : sliceProcessed1.clone();
 
+    if (imageToProcess.empty() || sliceMask.empty()) {
+        return Mat();
+    }
+
+    if (imageToProcess.channels() == 1) {
+        cvtColor(imageToProcess, imageToProcess, COLOR_GRAY2BGR);
+    }
+
+    Mat maskColor = sliceMask.clone();
+    if (maskColor.channels() == 1) {
+        cvtColor(maskColor, maskColor, COLOR_GRAY2BGR);
+    }
+
     Mat result;
     if (type == "NOT") {
         bitwise_not(imageToProcess, result);
@@ -178,25 +200,33 @@ Mat Volumetrics::aplyBitWiseOperation(Mat sliceProcessed1, string type) {
     }
 
     if (type == "AND") {
-        bitwise_and(imageToProcess, sliceMask, result);
+        bitwise_and(imageToProcess, maskColor, result);
         return result;
     }
 
     if (type == "OR") {
-        bitwise_or(imageToProcess, sliceMask, result);
+        bitwise_or(imageToProcess, maskColor, result);
         return result;
     }
 
-    bitwise_xor(imageToProcess, sliceMask, result);
+    bitwise_xor(imageToProcess, maskColor, result);
     return result;
 }
 
 Mat Volumetrics::aplyCanny(Mat sliceProcessed) {
     Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
 
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
     Mat grayImage;
 
-    cvtColor(imageToProcess, grayImage, COLOR_BGR2GRAY);
+    if (imageToProcess.channels() == 1) {
+        cvtColor(imageToProcess, grayImage, COLOR_GRAY2BGR);
+    } else {
+        grayImage = imageToProcess.clone();
+    }
 
     Mat blurredSlice;
     GaussianBlur(grayImage, blurredSlice, cv::Size(5, 5), 1.5);
@@ -220,8 +250,9 @@ Mat Volumetrics::adjustBrightness(Mat sliceProcessed) {
 
     Mat adjustedImage;
     addWeighted(imageToProcess, 1.0, Mat(), 0.0, valueBrightness, adjustedImage);
-}
 
+    return adjustedImage;
+}
 
 //* |------------| | Sets | |------------|
 

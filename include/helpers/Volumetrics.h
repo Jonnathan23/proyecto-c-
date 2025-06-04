@@ -22,11 +22,11 @@ class Volumetrics {
 
     cv::Mat getSliceMaskAsMat();
 
-    cv::Mat processSlice();
+    cv::Mat processSlice(cv::Mat sliceToProceess = cv::Mat());
 
     // écnicas de visión artificial
 
-    cv::Mat aplyThreshold(cv::Mat sliceProcessed = cv::Mat(), double umbral = 0.0);
+    cv::Mat aplyThreshold(cv::Mat sliceProcessed = cv::Mat(), double umbral = 55.0);
 
     cv::Mat aplyContratstStreching(cv::Mat sliceProcessed = cv::Mat());
 
@@ -45,7 +45,4 @@ class Volumetrics {
     cv::Mat slice;
     //? modificar para guardar uno o más máscaras
     cv::Mat sliceMask;
-
-    //? modificar para guardar uno o más slices y ya no se manejara por indice??
-    //?Vector<cv::Mat> processedSlice;
 };
