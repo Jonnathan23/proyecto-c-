@@ -246,10 +246,14 @@ Mat Volumetrics::adjustBrightness(Mat sliceProcessed) {
 
     Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
 
+    if(imageToProcess.empty()) {
+        return Mat();
+    }
+
     int valueBrightness = 50;
 
     Mat adjustedImage;
-    addWeighted(imageToProcess, 1.0, Mat(), 0.0, valueBrightness, adjustedImage);
+    addWeighted(imageToProcess, 1.0, imageToProcess, 0.0, valueBrightness, adjustedImage);
 
     return adjustedImage;
 }

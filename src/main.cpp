@@ -39,7 +39,7 @@ int main() {
         cerr << "Error al cargar MÁSCARA: " << paths.mask << endl;
         return EXIT_FAILURE;
     }
-    cout << "Máscara cargada: " << paths.mask << endl;
+    cout << "Máscara cargada: " << paths.mask << endl<<endl<<endl;
 
     // Extraer y procesar un slice
     int sliceIndex = 60;
@@ -55,8 +55,8 @@ int main() {
     Mat contrast = volumetrics.aplyContratstStreching(originalImage); // listo
     Mat binary = volumetrics.aplyUmbralBinary(); //listo
     Mat bitwise = volumetrics.aplyBitWiseOperation( Mat(),"AND"); //listo
-    Mat canny = volumetrics.aplyCanny();
-    //Mat brightness = volumetrics.adjustBrightness(imageProcessed);
+    Mat canny = volumetrics.aplyCanny(); //listo
+    Mat brightness = volumetrics.adjustBrightness();
 
     if (imageProcessed.empty()) {
         cerr << "Error en processSlice()\n";
@@ -88,9 +88,10 @@ int main() {
 
     namedWindow("Canny", WINDOW_AUTOSIZE);
     imshow("Canny", canny);
-/*
+
     namedWindow("Brightness", WINDOW_AUTOSIZE);
-    */
+    imshow("Brightness", brightness);
+    
 
 
     waitKey(0);
