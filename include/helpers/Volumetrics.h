@@ -41,8 +41,7 @@ class Volumetrics {
   private:
     VolumetricImagePointer volumetricImage;
     VolumetricImagePointer volumetricImageMask;
-    //? modificar para guardar uno o más slices y ya no se manejara por indice??
-    cv::Mat slice;
-    //? modificar para guardar uno o más máscaras
+    
+    cv::Mat slice;    
     cv::Mat sliceMask;
 };

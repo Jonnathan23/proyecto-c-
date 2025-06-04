@@ -33,7 +33,6 @@ public:
     static const std::string brats3Seg;
 };
 
-//TODO: struct BratsPaths
 
 struct BratsPaths {
     std::string standar;
