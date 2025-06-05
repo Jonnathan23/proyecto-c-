@@ -433,6 +433,16 @@ void Volumetrics::setSliceMaskAsMat(int sliceIndex) {
 
 //* |------------| | Gets | |------------|
 
+size_t Volumetrics::getDepth() const {
+    if (!volumetricImage) {
+        return 0;
+    }
+    auto region3D = volumetricImage->GetLargestPossibleRegion();
+    auto size3D   = region3D.GetSize();
+    return size3D[2];
+}
+
+
 Mat Volumetrics::getSliceAsMat() {
     return slice;
 }

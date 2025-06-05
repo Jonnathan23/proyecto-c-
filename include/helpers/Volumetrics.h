@@ -22,9 +22,11 @@ class Volumetrics {
 
     cv::Mat getSliceMaskAsMat();
 
-    cv::Mat processSlice(cv::Mat sliceToProceess = cv::Mat());
+    size_t getDepth() const;
 
-    // écnicas de visión artificial
+    
+    // técnicas de visión artificial
+    cv::Mat processSlice(cv::Mat sliceToProceess = cv::Mat());
 
     cv::Mat aplyThreshold(cv::Mat sliceProcessed = cv::Mat(), double umbral = 55.0);
 

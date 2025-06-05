@@ -6,8 +6,8 @@
 # -----------------------------------------------------------------------------
 
 # 1) Rutas a librerías externas
-OpenCvIncludeDir := /home/visionups/aplicaciones/Librerias/opencv/opencvi/include/opencv4
-OpenCvLibraryDir := /home/visionups/aplicaciones/Librerias/opencv/opencvi/lib
+OpenCvIncludeDir := /usr/include/opencv4
+OpenCvLibraryDir := /usr/lib/x86_64-linux-gnu
 OpenCvLibraries  := \
     -lopencv_core \
     -lopencv_highgui \
@@ -39,7 +39,7 @@ ItkSysLibrary   := -litksys-5.3
 
 # 2) Flags de compilación
 CXX      := g++
-CXXFLAGS := -std=c++17 -Wall \
+CXXFLAGS := -std=c++17 -Wall -fPIC \
             -I$(OpenCvIncludeDir) \
             -I$(ItkIncludeDir) \
             `pkg-config --cflags Qt5Widgets` \
@@ -68,13 +68,14 @@ LinkerFlagsMain := \
 SRC_DIR     := src
 INCLUDE_DIR := include
 UI_DIR      := ui
+OUTPUT_DIR  := output
 
 # 6) Encontrar todos los .cpp y .h recursivamente
 ALL_CPP := $(shell find $(SRC_DIR) -type f -name '*.cpp')
 ALL_HDR := $(shell find $(INCLUDE_DIR) -type f -name '*.h')
 
 # 7) Separar fuentes de UI (Qt) de las fuentes core
-UI_CPP   := $(shell find $(SRC_DIR)/UI -type f -name '*.cpp')
+UI_CPP   := $(shell find $(SRC_DIR)/UI -type f -name '*.cpp' 2>/dev/null || echo "")
 CORE_CPP := $(filter-out $(UI_CPP), $(ALL_CPP))
 
 # 8) Convertir listas de fuentes a listas de objetos (.o)
@@ -87,17 +88,22 @@ TARGET := Proyecto_saquicela
 # -----------------------------------------------------------------------------
 .PHONY: all main clean
 
-# =====================================================================
+# ============================================================================
 # Target “all” → compila TODO: UI + Helpers + Vision + main.cpp (con Qt)
-# =====================================================================
+# ============================================================================
 all: $(TARGET)
 
+# ----------------------------------------------------------------------------
 # 9a) Regla para generar ui/ui_MainWindow.h a partir de ui/MainWindow.ui
+# ----------------------------------------------------------------------------
 $(UI_DIR)/ui_%.h: $(UI_DIR)/%.ui
 	@echo " ---> Generando $@ a partir de $<"
 	uic $< -o $@
 
+# ----------------------------------------------------------------------------
 # 9b) Compilar cada .cpp → .o (para ALL_OBJS)
+#     Depende de todos los headers (helpers, Volumetrics, MainWindow, ui_*.h, etc.)
+# ----------------------------------------------------------------------------
 %.o: %.cpp $(ALL_HDR) $(shell find $(UI_DIR) -type f -name 'ui_*.h')
 	@echo "Compilando $<"
 	$(CXX) $(CXXFLAGS) \
@@ -105,15 +111,17 @@ $(UI_DIR)/ui_%.h: $(UI_DIR)/%.ui
 	      -I$(UI_DIR) \
 	      -c $< -o $@
 
+# ----------------------------------------------------------------------------
 # 9c) Link final: todos los objetos + Qt + OpenCV + ITK
+# ----------------------------------------------------------------------------
 $(TARGET): $(shell find $(UI_DIR) -type f -name 'ui_*.h') $(ALL_OBJS)
 	@echo "Linkeando $@"
 	$(CXX) $(ALL_OBJS) -o $@ $(LinkerFlags)
 
-# =====================================================================
+# ============================================================================
 # Target “main” → compila SOLO CORE_OBJS (Helpers + Vision + main.cpp),
 # sin UI ni Qt. Sirve para depurar la parte de Vision/Itk/OpenCV.
-# =====================================================================
+# ============================================================================
 main:
 	@echo "Compilando sin interfaz Qt (OpenCV + ITK + NIfTI + VNL + itksys) → coreTest …"
 	$(CXX) $(CXXFLAGS) \
@@ -126,10 +134,10 @@ main:
 	@echo "Ejecutando ./coreTest …"
 	@./coreTest
 
-# =====================================================================
+# ============================================================================
 # Target “clean” → elimina todos los objetos (.o), los headers generados
-# por uic ( ui/ui_*.h ), y los ejecutables MiProyectoQt y coreTest
-# =====================================================================
+# por uic ( ui/ui_*.h ), y los ejecutables Proyecto_saquicela y coreTest
+# ============================================================================
 clean:
 	@echo "Limpiando objetos y ejecutables…"
 	rm -f $(ALL_OBJS) $(UI_DIR)/ui_*.h $(TARGET) coreTest
