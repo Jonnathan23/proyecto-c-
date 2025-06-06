@@ -51,6 +51,8 @@ class Volumetrics {
 
     //histograma
     cv::Mat aplyHistogramEqualization(cv::Mat sliceProcessed = cv::Mat());
+    // investigado
+    cv::Mat aplyEmbossFilter(cv::Mat sliceProcessed = cv::Mat());
   private:
     VolumetricImagePointer volumetricImage;
     VolumetricImagePointer volumetricImageMask;

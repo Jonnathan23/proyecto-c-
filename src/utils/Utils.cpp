@@ -112,6 +112,11 @@ Mat aplyFilter(Volumetrics volumetrics, Mat processedSlice, std::string effectNa
         return processedSlice;
     }
 
+    if (effectName == "Emboss") {
+        processedSlice = volumetrics.aplyEmbossFilter(processedSlice);
+        return processedSlice;
+    }
+
     return processedSlice;
 }
 } // namespace Utils

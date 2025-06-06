@@ -63,6 +63,10 @@ MainWindow::MainWindow(QWidget *parent)
     //histograma
     ui->cbAplyEffect->addItem("HistogramEqualization");
 
+    //Investigado
+    ui->cbAplyEffect->addItem("Emboss");
+
+
     //* Botones “Guardar Imagen” y “Generar Video” deshabilitados al inicio
     ui->btSaveImage->setEnabled(false);
     ui->btGenerateVideo->setEnabled(false);
@@ -237,8 +241,10 @@ void MainWindow::on_btSaveImage_clicked() {
     toSave = (Utils::isChecked(ui) && !processedSlice.empty()) ? processedSlice : currentSlice;
 
     // 4) Formar nombre de archivo: “slice_<Z>.png”
-    QString nombre = QString("slice_%1.png").arg(currentSliceIndex);
-    QString fullPath = QDir(outputFolder).filePath(nombre);
+    int index = volumetrics.getSliceIndex();
+    
+    QString name = QString("slice_%1_%2.png").arg(index).arg(currentSliceIndex);
+    QString fullPath = QDir(outputFolder).filePath(name);
 
     // 5) Guardar con imwrite
     bool success = imwrite(fullPath.toStdString(), toSave);
@@ -248,6 +254,8 @@ void MainWindow::on_btSaveImage_clicked() {
     }
 
     ui->statusbar->showMessage("Imagen guardada: " + fullPath);
+
+    //TODO mostrar las estadísticas en una imagen emergente
 }
 
 /**
