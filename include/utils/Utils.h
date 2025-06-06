@@ -10,4 +10,6 @@ bool isChecked(Ui::MainWindow *ui);
 
 cv::Mat aplyFilter(Volumetrics volumetrics, cv::Mat processedSlice ,std::string effectName);
 
+bool generateStatistics(Volumetrics &volumetrics,const cv::Mat &slice,const QString &outputFolder,QWidget *parent);
+
 } // namespace Utils
