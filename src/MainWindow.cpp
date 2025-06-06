@@ -10,32 +10,33 @@
 
 using namespace cv;
 using namespace std;
+
+/**
+ * @brief Constructor de la clase MainWindow
+ */
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
       currentSliceIndex(0),
-      outputFolder("") // aún no elegimos carpeta de salida
+      outputFolder("output") // aún no elegimos carpeta de salida
 {
     // 1) Cargar la interfaz generada por uic
     ui->setupUi(this);
 
-    //------------------------------------------------------------------
-    // 2) CONFIGURACIÓN INICIAL DE WIDGETS
-    //------------------------------------------------------------------
-
-    // 2.1) ComboBox de Brats (identificadores “brats0”, “brats2”, “brats3”)
+    //|----------| |CONFIGURACIÓN INICIAL DE WIDGETS | |----------|    
+    //* ComboBox de Brats 
     ui->cbImageBrats->addItem("---- Seleccione un volumen ----");
     ui->cbImageBrats->addItem("brats0");
     ui->cbImageBrats->addItem("brats2");
     ui->cbImageBrats->addItem("brats3");
 
-    // 2.2) Slider de slices deshabilitado hasta que carguemos un volumen
+    //* Slider de slices deshabilitado hasta que carguemos un volumen
     ui->slSliceNumber->setMinimum(0);
     ui->slSliceNumber->setMaximum(0);
     ui->slSliceNumber->setValue(0);
     ui->slSliceNumber->setEnabled(false);
 
-    // 2.3) ComboBox de efectos de visión
+    //* ComboBox de efectos de visión
     ui->cbAplyEffect->addItem("---- Seleccione un efecto ----");
     ui->cbAplyEffect->addItem("Ninguno");
     ui->cbAplyEffect->addItem("Threshold");
@@ -47,11 +48,11 @@ MainWindow::MainWindow(QWidget *parent)
     ui->cbAplyEffect->addItem("Canny");
     ui->cbAplyEffect->addItem("Brightness");
 
-    // 2.4) Botones “Guardar Imagen” y “Generar Video” deshabilitados al inicio
+    //* Botones “Guardar Imagen” y “Generar Video” deshabilitados al inicio
     ui->btSaveImage->setEnabled(false);
     ui->btGenerateVideo->setEnabled(false);
 
-    // 2.5) TextEdit “txtVideoImages” inicialmente vacío
+    //* TextEdit “txtVideoImages” inicialmente vacío
     ui->txtVideoImages->setPlainText("");
 }
 
@@ -59,9 +60,10 @@ MainWindow::~MainWindow() {
     delete ui;
 }
 
-//------------------------------------------------------------------------------
-// SLOT: Cuando se pulsa “CargarVolumen” (btLoadImage)
-//------------------------------------------------------------------------------
+
+/**
+ * @brief Función que se ejecuta cuando se pulsa el botón “CargarVolumen”
+ */
 void MainWindow::on_btLoadImage_clicked() {
     // 1) Obtener opción seleccionada (“brats0”, “brats2”, “brats3”)
     QString qOption = ui->cbImageBrats->currentText();
@@ -124,9 +126,10 @@ void MainWindow::on_btLoadImage_clicked() {
     ui->statusbar->showMessage("Volumen cargado correctamente.");
 }
 
-//------------------------------------------------------------------------------
-// SLOT: Cuando se mueve el slider slSliceNumber
-//------------------------------------------------------------------------------
+/**
+ * @brief Función que se ejecuta cuando se mueve el slider "slSliceNumber"
+ * @param value Nuevo valor del slider
+ */
 void MainWindow::on_slSliceNumber_valueChanged(int value) {
     volumetrics.setSliceIndex(value);
     ui->lbSliceNum->setText(QString::number(value));
@@ -154,9 +157,11 @@ void MainWindow::on_slSliceNumber_valueChanged(int value) {
     showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
 }
 
-//------------------------------------------------------------------------------
-// SLOT: Cuando se cambia el combo cbAplyEffect
-//------------------------------------------------------------------------------
+
+/**
+ * @brief Función que se ejecuta cuando se cambia el combo cbAplyEffect
+ * @param index Nuevo valor del combo
+ */
 void MainWindow::on_cbAplyEffect_currentIndexChanged(int /*index*/) {
     // Si no hay slice ni máscara, no hacemos nada
     if (currentSlice.empty() || currentMask.empty()) {
@@ -172,9 +177,11 @@ void MainWindow::on_cbAplyEffect_currentIndexChanged(int /*index*/) {
     showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
 }
 
-//------------------------------------------------------------------------------
-// SLOT: Cuando se marca/desmarca el checkbox chUseImageProcessed
-//------------------------------------------------------------------------------
+
+/**
+ * @brief Función que se ejecuta cuando se marca/desmarca el checkbox chUseImageProcessed
+ * @param checked Nuevo valor del checkbox
+ */
 void MainWindow::on_chUseImageProcessed_toggled(bool checked) {
     if (checked && !processedSlice.empty()) {                
         showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
@@ -184,9 +191,11 @@ void MainWindow::on_chUseImageProcessed_toggled(bool checked) {
     }
 }
 
-//------------------------------------------------------------------------------
-// SLOT: Cuando se pulsa “Guardar Imagen” (btSaveImage)
-//------------------------------------------------------------------------------
+
+/**
+ * @brief Función que se ejecuta cuando se pulsa el botón btSaveImage
+ * @details Guarda la imagen actual en la carpeta de salida
+ */
 void MainWindow::on_btSaveImage_clicked() {
     // 1) Si no hay slice cargado, salimos
     if (currentSlice.empty()) {

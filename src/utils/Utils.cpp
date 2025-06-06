@@ -7,10 +7,21 @@ using namespace cv;
 using namespace std;
 
 namespace Utils {
+
+/**
+ * @brief Verifica si el checkbox de usar la imagen procesada esta marcado
+ */
 bool isChecked(Ui::MainWindow *ui) {
     return ui->chUseImageProcessed->isChecked();
 }
 
+/**
+ * @brief Aplica el efecto seleccionado a la imagen
+ * @param volumetrics Objeto Volumetrics
+ * @param processedSlice Imagen a la que se le va a aplicar el efecto
+ * @param effectName Nombre del efecto - "Threshold", "ContrastStretch", "UmbralBinary", "BitwiseAND", "BitwiseOR", "BitwiseXOR"
+ * @return Imagen con el efecto
+ */
 Mat aplyFilter(Volumetrics volumetrics, Mat processedSlice, std::string effectName) {
 
     if (effectName == "Threshold") {
