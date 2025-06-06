@@ -264,7 +264,7 @@ Mat Volumetrics::adjustBrightness(Mat sliceProcessed) {
  * @brief Setear la región de un slice en Z = sliceIndex y lo guarda en this->slice
  * @param sliceIndex Índice Z del slice a extraer
  */
-void Volumetrics::setSliceAsMat(int sliceIndex) {
+void Volumetrics::setSliceAsMat() {
     if (!volumetricImage) {
         cerr << "Volumetrics::setSliceAsMat: volumetricImage no está cargado.\n";
         slice = Mat(); // slice vacío
@@ -353,7 +353,7 @@ void Volumetrics::setSliceAsMat(int sliceIndex) {
  * @brief Extrae un slice del volumen de máscaras y lo guarda en this->sliceMask
  * @param sliceIndex Índice Z del slice a extraer
  */
-void Volumetrics::setSliceMaskAsMat(int sliceIndex) {
+void Volumetrics::setSliceMaskAsMat() {
     // 1) Verificar que volumetricImageMask no sea nulo
     if (!volumetricImageMask) {
         cerr << "Volumetrics::setSliceMaskAsMat: volumetricImageMask no está cargado.\n";
@@ -431,6 +431,14 @@ void Volumetrics::setSliceMaskAsMat(int sliceIndex) {
     }
 }
 
+void Volumetrics::setSliceIndex(int index) {
+    this->sliceIndex = index;
+}
+
+void Volumetrics::setEffectName(string effectName) {
+    this->effectName = effectName;
+}
+
 //* |------------| | Gets | |------------|
 
 size_t Volumetrics::getDepth() const {
@@ -449,4 +457,12 @@ Mat Volumetrics::getSliceAsMat() {
 
 Mat Volumetrics::getSliceMaskAsMat() {
     return sliceMask;
+}
+
+string Volumetrics::getEffectName() const {
+    return effectName;
+}
+
+int Volumetrics::getSliceIndex() const {
+    return sliceIndex;
 }

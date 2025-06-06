@@ -1,6 +1,7 @@
 // src/MainWindow.cpp
 #include "MainWindow.h"
 #include "helpers/DirectionImages.h"
+#include "utils/Utils.h"
 
 #include <QDir>
 #include <QFileDialog>
@@ -9,9 +10,6 @@
 
 using namespace cv;
 using namespace std;
-
-bool useImageProcessed = false;
-string effectName = "";
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
@@ -107,9 +105,9 @@ void MainWindow::on_btLoadImage_clicked() {
     ui->lbSliceNum->setText("0");
 
     // 8) Extraer y mostrar slice Z=0
-    currentSliceIndex = 0;
-    volumetrics.setSliceAsMat(currentSliceIndex);
-    volumetrics.setSliceMaskAsMat(currentSliceIndex);
+
+    volumetrics.setSliceAsMat();
+    volumetrics.setSliceMaskAsMat();
     currentSlice = volumetrics.getSliceAsMat();
     currentMask = volumetrics.getSliceMaskAsMat();
     showSliceOnLabel(currentSlice, ui->lbSliceImage);
@@ -130,12 +128,12 @@ void MainWindow::on_btLoadImage_clicked() {
 // SLOT: Cuando se mueve el slider slSliceNumber
 //------------------------------------------------------------------------------
 void MainWindow::on_slSliceNumber_valueChanged(int value) {
-    currentSliceIndex = value;
+    volumetrics.setSliceIndex(value);
     ui->lbSliceNum->setText(QString::number(value));
 
     // Extraer slice y máscara en el nuevo índice
-    volumetrics.setSliceAsMat(currentSliceIndex);
-    volumetrics.setSliceMaskAsMat(currentSliceIndex);
+    volumetrics.setSliceAsMat();
+    volumetrics.setSliceMaskAsMat();
     currentSlice = volumetrics.getSliceAsMat();
     currentMask = volumetrics.getSliceMaskAsMat();
 
@@ -150,35 +148,11 @@ void MainWindow::on_slSliceNumber_valueChanged(int value) {
         ui->lbSliceImageProcessed->setPixmap(QPixmap());
     }
 
-     // 4) Si el checkbox está marcado, mostrar processedSlice
-    if (ui->chUseImageProcessed->isChecked()) {
-        processedSlice = volumetrics.processSlice();        
-    } else {
-        processedSlice = volumetrics.getSliceAsMat();
-    }
+    processedSlice = Utils::isChecked(ui) ? volumetrics.processSlice() : volumetrics.getSliceAsMat();
+    processedSlice = Utils::aplyFilter(volumetrics, processedSlice, volumetrics.getEffectName());
 
-    // 3) Aplicar el filtro correspondiente
-    if (effectName == "Threshold") {
-        processedSlice = volumetrics.aplyThreshold(processedSlice, 55.0);
-    } else if (effectName == "ContrastStretch") {
-        processedSlice = volumetrics.aplyContratstStreching(processedSlice);
-    } else if (effectName == "UmbralBinary") {
-        processedSlice = volumetrics.aplyUmbralBinary();
-    } else if (effectName == "BitwiseAND") {
-        processedSlice = volumetrics.aplyBitWiseOperation(processedSlice, "AND");
-    } else if (effectName == "BitwiseOR") {
-        processedSlice = volumetrics.aplyBitWiseOperation(processedSlice, "OR");
-    } else if (effectName == "BitwiseXOR") {
-        processedSlice = volumetrics.aplyBitWiseOperation(processedSlice, "XOR");
-    } else if (effectName == "Canny") {
-        processedSlice = volumetrics.aplyCanny(processedSlice);
-    } else if (effectName == "Brightness") {
-        processedSlice = volumetrics.adjustBrightness(processedSlice);
-    }
-    // Si es “Ninguno”, processedSlice ya es solo la máscara resaltada
     showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
 }
-
 
 //------------------------------------------------------------------------------
 // SLOT: Cuando se cambia el combo cbAplyEffect
@@ -189,39 +163,12 @@ void MainWindow::on_cbAplyEffect_currentIndexChanged(int /*index*/) {
         return;
     }
 
-    // 1) Generar slice coloreado con máscara (resaltada)
-
-    
-    // 2) Obtener el nombre del efecto seleccionado
     QString fx = ui->cbAplyEffect->currentText();
-    effectName = fx.toStdString();
-    
-    // 4) Si el checkbox está marcado, mostrar processedSlice
-    if (ui->chUseImageProcessed->isChecked()) {
-        processedSlice = volumetrics.processSlice();        
-    } else {
-        processedSlice = volumetrics.getSliceAsMat();
-    }
+    volumetrics.setEffectName(fx.toStdString());
 
-    // 3) Aplicar el filtro correspondiente
-    if (effectName == "Threshold") {
-        processedSlice = volumetrics.aplyThreshold(processedSlice, 55.0);
-    } else if (effectName == "ContrastStretch") {
-        processedSlice = volumetrics.aplyContratstStreching(processedSlice);
-    } else if (effectName == "UmbralBinary") {
-        processedSlice = volumetrics.aplyUmbralBinary();
-    } else if (effectName == "BitwiseAND") {
-        processedSlice = volumetrics.aplyBitWiseOperation(processedSlice, "AND");
-    } else if (effectName == "BitwiseOR") {
-        processedSlice = volumetrics.aplyBitWiseOperation(processedSlice, "OR");
-    } else if (effectName == "BitwiseXOR") {
-        processedSlice = volumetrics.aplyBitWiseOperation(processedSlice, "XOR");
-    } else if (effectName == "Canny") {
-        processedSlice = volumetrics.aplyCanny(processedSlice);
-    } else if (effectName == "Brightness") {
-        processedSlice = volumetrics.adjustBrightness(processedSlice);
-    }
-    // Si es “Ninguno”, processedSlice ya es solo la máscara resaltada
+    processedSlice = ui->chUseImageProcessed->isChecked() ? volumetrics.processSlice() : volumetrics.getSliceAsMat();
+    processedSlice = Utils::aplyFilter(volumetrics, processedSlice, volumetrics.getEffectName());
+
     showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
 }
 
@@ -229,7 +176,7 @@ void MainWindow::on_cbAplyEffect_currentIndexChanged(int /*index*/) {
 // SLOT: Cuando se marca/desmarca el checkbox chUseImageProcessed
 //------------------------------------------------------------------------------
 void MainWindow::on_chUseImageProcessed_toggled(bool checked) {
-    if (checked && !processedSlice.empty()) {
+    if (checked && !processedSlice.empty()) {                
         showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
     } else {
         ui->lbSliceImageProcessed->setText("Sin procesar");
@@ -322,40 +269,19 @@ void MainWindow::on_btGenerateVideo_clicked() {
 
     // 5) Iterar sobre cada slice Z = 0..depth-1
     for (size_t z = 0; z < depth; ++z) {
-        volumetrics.setSliceAsMat(static_cast<int>(z));
-        volumetrics.setSliceMaskAsMat(static_cast<int>(z));
+        // TODO Corregir la generacion para el video
+        // volumetrics.setSliceAsMat(static_cast<int>(z));
+        // volumetrics.setSliceMaskAsMat(static_cast<int>(z));
+        volumetrics.setSliceAsMat();
+        volumetrics.setSliceMaskAsMat();
         Mat sliceOut = volumetrics.processSlice();
-
-        // Aplicar filtro adicional según effectName
-        if (effectName == "Threshold") {
-            sliceOut = volumetrics.aplyThreshold(sliceOut, 55.0);
-        } else if (effectName == "ContrastStretch") {
-            sliceOut = volumetrics.aplyContratstStreching(sliceOut);
-        } else if (effectName == "UmbralBinary") {
-            sliceOut = volumetrics.aplyUmbralBinary();
-        } else if (effectName == "BitwiseAND") {
-            sliceOut = volumetrics.aplyBitWiseOperation(sliceOut, "AND");
-        } else if (effectName == "BitwiseOR") {
-            sliceOut = volumetrics.aplyBitWiseOperation(sliceOut, "OR");
-        } else if (effectName == "BitwiseXOR") {
-            sliceOut = volumetrics.aplyBitWiseOperation(sliceOut, "XOR");
-        } else if (effectName == "Canny") {
-            sliceOut = volumetrics.aplyCanny(sliceOut);
-        } else if (effectName == "Brightness") {
-            sliceOut = volumetrics.adjustBrightness(sliceOut);
-        }
-        // Si es “Ninguno”, sliceOut es la máscara coloreada
+        sliceOut = Utils::aplyFilter(volumetrics, sliceOut, effectName);
 
         // 6) Nombre de archivo: “slice_000.png” (rellena con ceros)
         QString nombre = QString("slice_%1.png").arg(z, 3, 10, QChar('0'));
         QString fullPath = QDir(outputFolder).filePath(nombre);
 
-        // 7) Guardar sliceOut
-        bool saved = imwrite(fullPath.toStdString(), sliceOut);
-        if (!saved) {
-            ui->statusbar->showMessage("Error guardando slice " + QString::number(z));
-            return;
-        }
+        // TODO Los slices deben formar un video
     }
 
     ui->statusbar->showMessage(

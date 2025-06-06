@@ -113,7 +113,7 @@ class Ui_MainWindow {
         btLoadImage->setText(QCoreApplication::translate("MainWindow", "CargarVolumen", nullptr));
         lbSliceNum->setText(QCoreApplication::translate("MainWindow", "0", nullptr));
         label->setText(QCoreApplication::translate("MainWindow", "Slice:", nullptr));
-        chUseImageProcessed->setText(QCoreApplication::translate("MainWindow", "Usar Imagen Destacada", nullptr));
+        chUseImageProcessed->setText(QCoreApplication::translate("MainWindow", "Resaltar Imagen", nullptr));
         label_2->setText(QCoreApplication::translate("MainWindow", "Efectos Vision:", nullptr));
         btGenerateVideo->setText(QCoreApplication::translate("MainWindow", "Generar Video", nullptr));
         btSaveImage->setText(QCoreApplication::translate("MainWindow", "Guardar Imagen", nullptr));

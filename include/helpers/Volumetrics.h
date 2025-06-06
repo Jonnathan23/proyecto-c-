@@ -15,14 +15,17 @@ class Volumetrics {
 
     bool loadVolumetric(std::string path, std::string type = "flair");
 
-    void setSliceAsMat(int sliceIndex);
-    void setSliceMaskAsMat(int sliceIndex);
+    void setSliceAsMat();
+    void setSliceMaskAsMat();
+    void setEffectName(std::string effectName);
+    void setSliceIndex(int index);
 
     cv::Mat getSliceAsMat();
-
     cv::Mat getSliceMaskAsMat();
-
     size_t getDepth() const;
+    std::string getEffectName() const;
+    int getSliceIndex() const;
+
 
     
     // técnicas de visión artificial
@@ -47,7 +50,6 @@ class Volumetrics {
     cv::Mat slice;    
     cv::Mat sliceMask;
 
-    std::string effectName="";
-    bool useImageProcessed = false;
+    std::string effectName="";    
     int sliceIndex = 0;
 };
