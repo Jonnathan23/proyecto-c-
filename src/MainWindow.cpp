@@ -18,7 +18,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
       currentSliceIndex(0),
-      outputFolder("output") // aún no elegimos carpeta de salida
+      outputFolder("output")
 {
     // 1) Cargar la interfaz generada por uic
     ui->setupUi(this);
@@ -54,11 +54,18 @@ MainWindow::MainWindow(QWidget *parent)
     ui->cbAplyEffect->addItem("MedianFilter");
     ui->cbAplyEffect->addItem("BilateralFilter");
 
-    // Morfologicos
+    // Morfologicas
     ui->cbAplyEffect->addItem("Erosion");
     ui->cbAplyEffect->addItem("Dilation");
     ui->cbAplyEffect->addItem("Opening");
     ui->cbAplyEffect->addItem("Closing");
+
+    //histograma
+    ui->cbAplyEffect->addItem("HistogramEqualization");
+
+    //Investigado
+    ui->cbAplyEffect->addItem("Emboss");
+
 
     //* Botones “Guardar Imagen” y “Generar Video” deshabilitados al inicio
     ui->btSaveImage->setEnabled(false);
@@ -234,8 +241,10 @@ void MainWindow::on_btSaveImage_clicked() {
     toSave = (Utils::isChecked(ui) && !processedSlice.empty()) ? processedSlice : currentSlice;
 
     // 4) Formar nombre de archivo: “slice_<Z>.png”
-    QString nombre = QString("slice_%1.png").arg(currentSliceIndex);
-    QString fullPath = QDir(outputFolder).filePath(nombre);
+    int index = volumetrics.getSliceIndex();
+    
+    QString name = QString("slice_%1_%2.png").arg(index).arg(currentSliceIndex);
+    QString fullPath = QDir(outputFolder).filePath(name);
 
     // 5) Guardar con imwrite
     bool success = imwrite(fullPath.toStdString(), toSave);
@@ -245,6 +254,8 @@ void MainWindow::on_btSaveImage_clicked() {
     }
 
     ui->statusbar->showMessage("Imagen guardada: " + fullPath);
+
+    //TODO mostrar las estadísticas en una imagen emergente
 }
 
 /**

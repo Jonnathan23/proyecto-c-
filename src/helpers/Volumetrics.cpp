@@ -644,6 +644,97 @@ Mat Volumetrics::aplyClosing(Mat sliceProcessed, int kernelSize) {
     return result;
 }
 
+//* |------------| | Histograma | |------------|
+/**
+ * @brief Aplica ecualización de histograma
+ */
+cv::Mat Volumetrics::aplyHistogramEqualization(cv::Mat sliceProcessed) {
+    cv::Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return cv::Mat();
+    }
+
+    // Caso 1: imagen de un solo canal (grises)
+    if (imageToProcess.channels() == 1) {
+        cv::Mat equalized;
+        // equalizeHist opera únicamente sobre imágenes CV_8UC1
+        cv::equalizeHist(imageToProcess, equalized);
+        return equalized;
+    }
+
+    // Caso 2: imagen a color (3 canales BGR)
+
+    //    Convertimos a espacio YCrCb para ecualizar la luminancia (canal Y)
+    cv::Mat imageYCrCb;
+    cv::cvtColor(imageToProcess, imageYCrCb, cv::COLOR_BGR2YCrCb);
+
+    // Separamos los tres canales: Y, Cr y Cb
+    std::vector<cv::Mat> canales(3);
+    cv::split(imageYCrCb, canales); // canales[0] = Y, [1]=Cr, [2]=Cb
+
+    // Ecualizamos el canal de luminancia (Y)
+    cv::equalizeHist(canales[0], canales[0]);
+
+    // Volvemos a mezclar los canales YCrCb (con Y ecualizado)
+    cv::Mat merged;
+    cv::merge(canales, merged);
+
+    // Convertir de nuevo a BGR
+    cv::Mat resultBGR;
+    cv::cvtColor(merged, resultBGR, cv::COLOR_YCrCb2BGR);
+
+    return resultBGR;
+}
+
+//* |------------| | Investigado | |------------|
+Mat Volumetrics::aplyEmbossFilter(Mat sliceProcessed) {
+    // 1) Seleccionar la imagen a procesar (si sliceProcessed está vacío, usamos slice)
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 2) Si no hay imagen, devolvemos Mat vacío
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 3) Definir el kernel de Emboss (relieve)
+    //    [ -2 -1  0 ]
+    //    [ -1  1  1 ]
+    //    [  0  1  2 ]
+    Mat embossKernel = (Mat_<float>(3, 3) << -2, -1, 0,
+                            -1, 1, 1,
+                            0, 1, 2);
+
+    // 4) Crear imagen de salida
+    Mat result;
+
+    // 5) Si la imagen tiene un canal (grises), aplicamos filter2D directamente
+    if (imageToProcess.channels() == 1) {
+        filter2D(imageToProcess, result, CV_8U, embossKernel);
+        // Opcional: sumar 128 para centrar el valor en 128 y ver relieve en grises medios.
+        // Esto evita que los valores negativos queden en cero puro.
+        result += 128;
+        return result;
+    }
+
+    // 6) Si la imagen es color (3 canales BGR), aplicamos emboss en cada canal
+    std::vector<Mat> canales(3);
+    split(imageToProcess, canales); // Separa B, G, R
+
+    for (int i = 0; i < 3; i++) {
+        Mat canalEmboss;
+        filter2D(canales[i], canalEmboss, CV_32F, embossKernel);
+        // Convertir a 8 bits con saturación:
+        canalEmboss.convertTo(canalEmboss, CV_8U);
+        // Opcional: añadir 128 para centrar
+        canalEmboss += 128;
+        canales[i] = canalEmboss;
+    }
+
+    merge(canales, result);
+    return result;
+}
+
 //* |------------| | Gets | |------------|
 
 /**

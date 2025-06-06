@@ -16,7 +16,8 @@ OpenCvLibraries  := \
     -lopencv_imgproc \
     -lopencv_imgcodecs \
     -lopencv_video \
-    -lopencv_videoio
+    -lopencv_videoio \
+    -lopencv_photo
 
 ItkIncludeDir   := /usr/include/ITK-5.3
 ItkLibraryDir   := /usr/lib/x86_64-linux-gnu
