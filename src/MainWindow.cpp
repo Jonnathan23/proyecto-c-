@@ -8,7 +8,10 @@
 #include <QPixmap>
 
 using namespace cv;
+using namespace std;
 
+bool useImageProcessed = false;
+string effectName = "";
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
@@ -23,6 +26,7 @@ MainWindow::MainWindow(QWidget *parent)
     //------------------------------------------------------------------
 
     // 2.1) ComboBox de Brats (identificadores “brats0”, “brats2”, “brats3”)
+    ui->cbImageBrats->addItem("---- Seleccione un volumen ----");
     ui->cbImageBrats->addItem("brats0");
     ui->cbImageBrats->addItem("brats2");
     ui->cbImageBrats->addItem("brats3");
@@ -34,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->slSliceNumber->setEnabled(false);
 
     // 2.3) ComboBox de efectos de visión
+    ui->cbAplyEffect->addItem("---- Seleccione un efecto ----");
     ui->cbAplyEffect->addItem("Ninguno");
     ui->cbAplyEffect->addItem("Threshold");
     ui->cbAplyEffect->addItem("ContrastStretch");
@@ -62,7 +67,7 @@ MainWindow::~MainWindow() {
 void MainWindow::on_btLoadImage_clicked() {
     // 1) Obtener opción seleccionada (“brats0”, “brats2”, “brats3”)
     QString qOption = ui->cbImageBrats->currentText();
-    std::string optionUser = qOption.toStdString();
+    string optionUser = qOption.toStdString();
 
     // 2) Verificar que exista en el mapa global allBratsMap
     if (allBratsMap.count(optionUser) == 0) {
@@ -144,23 +149,13 @@ void MainWindow::on_slSliceNumber_valueChanged(int value) {
         ui->lbSliceImageProcessed->setText("Sin procesar");
         ui->lbSliceImageProcessed->setPixmap(QPixmap());
     }
-}
 
-//------------------------------------------------------------------------------
-// SLOT: Cuando se cambia el combo cbAplyEffect
-//------------------------------------------------------------------------------
-void MainWindow::on_cbAplyEffect_currentIndexChanged(int /*index*/) {
-    // Si no hay slice ni máscara, no hacemos nada
-    if (currentSlice.empty() || currentMask.empty()) {
-        return;
+     // 4) Si el checkbox está marcado, mostrar processedSlice
+    if (ui->chUseImageProcessed->isChecked()) {
+        processedSlice = volumetrics.processSlice();        
+    } else {
+        processedSlice = volumetrics.getSliceAsMat();
     }
-
-    // 1) Generar slice coloreado con máscara (resaltada)
-    processedSlice = volumetrics.processSlice();
-
-    // 2) Obtener el nombre del efecto seleccionado
-    QString fx = ui->cbAplyEffect->currentText();
-    std::string effectName = fx.toStdString();
 
     // 3) Aplicar el filtro correspondiente
     if (effectName == "Threshold") {
@@ -181,11 +176,53 @@ void MainWindow::on_cbAplyEffect_currentIndexChanged(int /*index*/) {
         processedSlice = volumetrics.adjustBrightness(processedSlice);
     }
     // Si es “Ninguno”, processedSlice ya es solo la máscara resaltada
+    showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
+}
 
+
+//------------------------------------------------------------------------------
+// SLOT: Cuando se cambia el combo cbAplyEffect
+//------------------------------------------------------------------------------
+void MainWindow::on_cbAplyEffect_currentIndexChanged(int /*index*/) {
+    // Si no hay slice ni máscara, no hacemos nada
+    if (currentSlice.empty() || currentMask.empty()) {
+        return;
+    }
+
+    // 1) Generar slice coloreado con máscara (resaltada)
+
+    
+    // 2) Obtener el nombre del efecto seleccionado
+    QString fx = ui->cbAplyEffect->currentText();
+    effectName = fx.toStdString();
+    
     // 4) Si el checkbox está marcado, mostrar processedSlice
     if (ui->chUseImageProcessed->isChecked()) {
-        showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
+        processedSlice = volumetrics.processSlice();        
+    } else {
+        processedSlice = volumetrics.getSliceAsMat();
     }
+
+    // 3) Aplicar el filtro correspondiente
+    if (effectName == "Threshold") {
+        processedSlice = volumetrics.aplyThreshold(processedSlice, 55.0);
+    } else if (effectName == "ContrastStretch") {
+        processedSlice = volumetrics.aplyContratstStreching(processedSlice);
+    } else if (effectName == "UmbralBinary") {
+        processedSlice = volumetrics.aplyUmbralBinary();
+    } else if (effectName == "BitwiseAND") {
+        processedSlice = volumetrics.aplyBitWiseOperation(processedSlice, "AND");
+    } else if (effectName == "BitwiseOR") {
+        processedSlice = volumetrics.aplyBitWiseOperation(processedSlice, "OR");
+    } else if (effectName == "BitwiseXOR") {
+        processedSlice = volumetrics.aplyBitWiseOperation(processedSlice, "XOR");
+    } else if (effectName == "Canny") {
+        processedSlice = volumetrics.aplyCanny(processedSlice);
+    } else if (effectName == "Brightness") {
+        processedSlice = volumetrics.adjustBrightness(processedSlice);
+    }
+    // Si es “Ninguno”, processedSlice ya es solo la máscara resaltada
+    showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
 }
 
 //------------------------------------------------------------------------------
@@ -226,7 +263,7 @@ void MainWindow::on_btSaveImage_clicked() {
     }
 
     // 3) Decidir qué imagen guardar: si el checkbox está marcado y processedSlice existe, uso ese
-    cv::Mat toSave;
+    Mat toSave;
     if (ui->chUseImageProcessed->isChecked() && !processedSlice.empty()) {
         toSave = processedSlice;
     } else {
@@ -238,7 +275,7 @@ void MainWindow::on_btSaveImage_clicked() {
     QString fullPath = QDir(outputFolder).filePath(nombre);
 
     // 5) Guardar con imwrite
-    bool success = cv::imwrite(fullPath.toStdString(), toSave);
+    bool success = imwrite(fullPath.toStdString(), toSave);
     if (!success) {
         ui->statusbar->showMessage("Error al guardar imagen en " + fullPath);
         return;
@@ -281,13 +318,13 @@ void MainWindow::on_btGenerateVideo_clicked() {
 
     // 4) Obtener el nombre del efecto y si usar processedSlice
     QString fx = ui->cbAplyEffect->currentText();
-    std::string effectName = fx.toStdString();
+    string effectName = fx.toStdString();
 
     // 5) Iterar sobre cada slice Z = 0..depth-1
     for (size_t z = 0; z < depth; ++z) {
         volumetrics.setSliceAsMat(static_cast<int>(z));
         volumetrics.setSliceMaskAsMat(static_cast<int>(z));
-        cv::Mat sliceOut = volumetrics.processSlice();
+        Mat sliceOut = volumetrics.processSlice();
 
         // Aplicar filtro adicional según effectName
         if (effectName == "Threshold") {
@@ -314,7 +351,7 @@ void MainWindow::on_btGenerateVideo_clicked() {
         QString fullPath = QDir(outputFolder).filePath(nombre);
 
         // 7) Guardar sliceOut
-        bool saved = cv::imwrite(fullPath.toStdString(), sliceOut);
+        bool saved = imwrite(fullPath.toStdString(), sliceOut);
         if (!saved) {
             ui->statusbar->showMessage("Error guardando slice " + QString::number(z));
             return;
@@ -326,9 +363,9 @@ void MainWindow::on_btGenerateVideo_clicked() {
 }
 
 //------------------------------------------------------------------------------
-// Convierte cv::Mat (CV_8UC1 o CV_8UC3) a QImage (copia) para mostrarlo en QLabel
+// Convierte Mat (CV_8UC1 o CV_8UC3) a QImage (copia) para mostrarlo en QLabel
 //------------------------------------------------------------------------------
-QImage MainWindow::cvMatToQImage(const cv::Mat &mat) {
+QImage MainWindow::cvMatToQImage(const Mat &mat) {
     if (mat.empty()) {
         return QImage();
     }
@@ -349,9 +386,9 @@ QImage MainWindow::cvMatToQImage(const cv::Mat &mat) {
 }
 
 //------------------------------------------------------------------------------
-// Muestra un cv::Mat en un QLabel, escalándolo para ajustarse al tamaño del label
+// Muestra un Mat en un QLabel, escalándolo para ajustarse al tamaño del label
 //------------------------------------------------------------------------------
-void MainWindow::showSliceOnLabel(const cv::Mat &mat, QLabel *label) {
+void MainWindow::showSliceOnLabel(const Mat &mat, QLabel *label) {
     QImage img = cvMatToQImage(mat);
     if (img.isNull()) {
         label->setText("Sin imagen");

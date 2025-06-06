@@ -10,7 +10,7 @@ errors.txt
 *.swp
 *.swo
 
-
+output/
 .vscode/
 .idea/
 *.user

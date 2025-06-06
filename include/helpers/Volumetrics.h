@@ -46,4 +46,8 @@ class Volumetrics {
     
     cv::Mat slice;    
     cv::Mat sliceMask;
+
+    std::string effectName="";
+    bool useImageProcessed = false;
+    int sliceIndex = 0;
 };

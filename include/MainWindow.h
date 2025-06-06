@@ -28,6 +28,9 @@ private:
     Volumetrics volumetrics;  // Objeto para carga y filtros
 
     int currentSliceIndex;
+    int numberSlicesToVideo = 0;
+    bool useImageProcessed = false;
+
     cv::Mat currentSlice;
     cv::Mat currentMask;
     cv::Mat processedSlice;
