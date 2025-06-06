@@ -8,6 +8,20 @@
 #include <QMessageBox>
 #include <QPixmap>
 
+#include <QFile>
+#include <QTextStream>
+#include <QDir>
+#include <QProcess>
+#include <QDialog>
+#include <QTabWidget>
+#include <QTextEdit>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QPushButton>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QDebug>  
+
 using namespace cv;
 using namespace std;
 
@@ -18,8 +32,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
       currentSliceIndex(0),
-      outputFolder("output")
-{
+      outputFolder("output") {
     // 1) Cargar la interfaz generada por uic
     ui->setupUi(this);
 
@@ -60,12 +73,11 @@ MainWindow::MainWindow(QWidget *parent)
     ui->cbAplyEffect->addItem("Opening");
     ui->cbAplyEffect->addItem("Closing");
 
-    //histograma
+    // histograma
     ui->cbAplyEffect->addItem("HistogramEqualization");
 
-    //Investigado
+    // Investigado
     ui->cbAplyEffect->addItem("Emboss");
-
 
     //* Botones “Guardar Imagen” y “Generar Video” deshabilitados al inicio
     ui->btSaveImage->setEnabled(false);
@@ -242,7 +254,7 @@ void MainWindow::on_btSaveImage_clicked() {
 
     // 4) Formar nombre de archivo: “slice_<Z>.png”
     int index = volumetrics.getSliceIndex();
-    
+
     QString name = QString("slice_%1_%2.png").arg(index).arg(currentSliceIndex);
     QString fullPath = QDir(outputFolder).filePath(name);
 
@@ -253,9 +265,148 @@ void MainWindow::on_btSaveImage_clicked() {
         return;
     }
 
-    ui->statusbar->showMessage("Imagen guardada: " + fullPath);
+    ui->statusbar->showMessage("Imagen guardada: " + fullPath + ", generando gráficos estadísticos...");
 
-    //TODO mostrar las estadísticas en una imagen emergente
+    // Generar datos estadisticos
+    // Obtener la máscara y extraer valores dentro de ella
+    cv::Mat mask = volumetrics.getSliceMaskAsMat();
+    if (mask.empty()) {
+        ui->statusbar->showMessage("No se encontró máscara para generar estadísticas.");
+        return;
+    }
+
+    // 7) Convertir toSave a escala de grises si tuviera 3 canales
+    cv::Mat graySlice;
+    if (toSave.channels() == 3) {
+        cv::cvtColor(toSave, graySlice, cv::COLOR_BGR2GRAY);
+    } else {
+        graySlice = toSave;
+    }
+
+    // 8) Recopilar valores de píxel en un vector
+    std::vector<int> valores;
+    valores.reserve(graySlice.rows * graySlice.cols);
+    for (int y = 0; y < mask.rows; ++y) {
+        const uchar *ptrMask = mask.ptr<uchar>(y);
+        const uchar *ptrGray = graySlice.ptr<uchar>(y);
+        for (int x = 0; x < mask.cols; ++x) {
+            if (ptrMask[x] > 0) {
+                valores.push_back(static_cast<int>(ptrGray[x]));
+            }
+        }
+    }
+    if (valores.empty()) {
+        ui->statusbar->showMessage("La máscara no cubre ningún píxel en el slice.");
+        return;
+    }
+
+    // 9) Guardar estos valores en un CSV en ./tmp/valores.csv
+    QString tmpDir = QCoreApplication::applicationDirPath() + "/tmp";
+    QDir().mkpath(tmpDir); // crea tmp/ si no existe
+
+    QString csvPath = tmpDir + "/valores.csv";
+    {
+        QFile file(csvPath);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            ui->statusbar->showMessage("No se pudo crear archivo CSV en tmp/valores.csv.");
+            return;
+        }
+        QTextStream out(&file);
+        for (int v : valores) {
+            out << v << "\n";
+        }
+        file.close();
+    }
+
+    // 10) Invocar el script Python que genera gráficos y reporte de estadísticas
+    QString scriptPython = "python3";
+    QString scriptFile = QCoreApplication::applicationDirPath() + "/scripts/main.py";
+    QStringList argumentos;
+    argumentos << scriptFile << csvPath << outputFolder;
+
+    QProcess process;
+    process.start(scriptPython, argumentos);
+    bool terminó = process.waitForFinished(10000); // esperamos hasta 10s
+    if (!terminó || process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        ui->statusbar->showMessage("Error al ejecutar el script Python.");
+        QString err = process.readAllStandardError();
+        qDebug() << "Python STDERR:" << err;
+        return;
+    }
+
+    // 11) Mostrar en ventana modal los gráficos generados:
+    //     asumimos que el script guardó: boxplot.png, histograma.png, estadisticos_basicos.png, reporte_estadisticas.txt
+    QString boxplotPath = outputFolder + "/boxplot.png";
+    QString histoPath = outputFolder + "/histograma.png";
+    QString barrasPath = outputFolder + "/estadisticos_basicos.png";
+    QString reportePath = outputFolder + "/reporte_estadisticas.txt";
+
+    QDialog *dialog = new QDialog(this);
+    dialog->setWindowTitle("Resultados Estadísticos");
+    QTabWidget *tabs = new QTabWidget(dialog);
+
+    // 11a) Pestaña de reporte de texto
+    {
+        QTextEdit *txt = new QTextEdit;
+        txt->setReadOnly(true);
+        QFile ftxt(reportePath);
+        if (ftxt.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QString contenido = ftxt.readAll();
+            txt->setPlainText(contenido);
+            ftxt.close();
+        } else {
+            txt->setPlainText("No se encontró reporte de texto.");
+        }
+        tabs->addTab(txt, "Reporte");
+    }
+
+    // 11b) Pestaña de boxplot
+    {
+        QLabel *lbl = new QLabel;
+        if (QFile::exists(boxplotPath)) {
+            QPixmap pix(boxplotPath);
+            lbl->setPixmap(pix.scaled(600, 400, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        } else {
+            lbl->setText("No se encontró boxplot.png");
+        }
+        tabs->addTab(lbl, "Boxplot");
+    }
+
+    // 11c) Pestaña de histograma
+    {
+        QLabel *lbl = new QLabel;
+        if (QFile::exists(histoPath)) {
+            QPixmap pix(histoPath);
+            lbl->setPixmap(pix.scaled(600, 400, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        } else {
+            lbl->setText("No se encontró histograma.png");
+        }
+        tabs->addTab(lbl, "Histograma");
+    }
+
+    // 11d) Pestaña de gráficos de barras
+    {
+        QLabel *lbl = new QLabel;
+        if (QFile::exists(barrasPath)) {
+            QPixmap pix(barrasPath);
+            lbl->setPixmap(pix.scaled(600, 400, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        } else {
+            lbl->setText("No se encontró estadisticos_basicos.png");
+        }
+        tabs->addTab(lbl, "Básicos");
+    }
+
+    // Layout del diálogo
+    QVBoxLayout *layout = new QVBoxLayout;
+    layout->addWidget(tabs);
+
+    QPushButton *botonCerrar = new QPushButton("Cerrar");
+    connect(botonCerrar, &QPushButton::clicked, dialog, &QDialog::accept);
+    layout->addWidget(botonCerrar);
+
+    dialog->setLayout(layout);
+    dialog->resize(640, 480);
+    dialog->exec();
 }
 
 /**
