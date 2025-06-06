@@ -1,7 +1,8 @@
 .bin
 coreTest
 
-
+venv/
+tmp/
 
 errors.txt
 
