@@ -22,7 +22,7 @@ Volumetrics::~Volumetrics() {}
 bool Volumetrics::loadVolumetric(string path, string type) {
     NiftiImageIOFactory::RegisterOneFactory();
 
-    //Definir el tipo de lector (imagen 3D float)
+    // Definir el tipo de lector (imagen 3D float)
     using ReaderType = ImageFileReader<VolumetricImageType>;
     ReaderType::Pointer reader = ReaderType::New();
 
@@ -258,6 +258,96 @@ Mat Volumetrics::adjustBrightness(Mat sliceProcessed) {
     return adjustedImage;
 }
 
+//* |------------| | Suavizado | |------------|
+
+/**
+ * @brief Aplica un filtro de promedio a la imagen
+ * @param sliceProcessed Slice procesado por el metodo principal
+ */
+Mat Volumetrics::aplyMeanFilter(Mat sliceProcessed, int kernelSize) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // Forzar tamaño impar mínimo de kernel
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    Mat result;
+    // blur() aplica promedio en cada vecindario de tamaño (kernelSize × kernelSize)
+    blur(imageToProcess, result, cv::Size(kernelSize, kernelSize));
+    return result;
+}
+
+/**
+ * @brief Aplica un filtro gaussiano a la imagen
+ * @param sliceProcessed Slice procesado por el metodo principal
+ */
+Mat Volumetrics::aplyGaussianFilter(Mat sliceProcessed, int kernelSize, double sigmaX) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // Forzar tamaño impar mínimo de kernel
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    Mat result;
+    // GaussianBlur(src, dst, Size(k,k), sigmaX, sigmaY=0, bordes por defecto)
+    GaussianBlur(imageToProcess, result, cv::Size(kernelSize, kernelSize), sigmaX);
+    return result;
+}
+
+/**
+ * @brief Aplica un filtro de mediana a la imagen
+ * @param sliceProcessed Slice procesado por el metodo principal
+ */
+Mat Volumetrics::aplyMedianFilter(Mat sliceProcessed, int kernelSize) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // Forzar tamaño impar mínimo de kernel (>=3)
+    if (kernelSize < 3) {
+        kernelSize = 3;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    Mat result;
+    // medianBlur() hace una ordenación de valores en la vecindad y elige la mediana
+    medianBlur(imageToProcess, result, kernelSize);
+    return result;
+}
+
+/** @brief Aplica un filtro bilateral a la imagen */
+Mat Volumetrics::aplyBilateralFilter(Mat sliceProcessed, int diameter, double sigmaColor, double sigmaSpace) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // diameter debe ser >=1
+    if (diameter < 1) {
+        diameter = 1;
+    }
+
+    Mat result;
+    // bilateralFilter(src, dst, d, sigmaColor, sigmaSpace)
+    bilateralFilter(imageToProcess, result, diameter, sigmaColor, sigmaSpace);
+    return result;
+}
+
 //* |------------| | Sets | |------------|
 
 /**
@@ -312,7 +402,7 @@ void Volumetrics::setSliceAsMat() {
         return;
     }
 
-    // 4) Convertir el resultado (ITK Image<float,2>) a Mat (float 2D)
+    // 4) Convertir el result (ITK Image<float,2>) a Mat (float 2D)
     auto itkSlice2D = extractFilter->GetOutput();
     auto region2D = itkSlice2D->GetLargestPossibleRegion();
     auto size2D = region2D.GetSize();

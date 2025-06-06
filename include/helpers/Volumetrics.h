@@ -43,6 +43,12 @@ class Volumetrics {
 
     cv::Mat adjustBrightness(cv::Mat sliceProcessed = cv::Mat());
 
+    // Suavizado
+    cv::Mat aplyMeanFilter(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);
+    cv::Mat aplyGaussianFilter(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5, double sigmaX = 1.0);
+    cv::Mat aplyMedianFilter(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);
+    cv::Mat aplyBilateralFilter(cv::Mat sliceProcessed = cv::Mat(), int diameter = 9, double sigmaColor = 75.0, double sigmaSpace = 75.0);
+
   private:
     VolumetricImagePointer volumetricImage;
     VolumetricImagePointer volumetricImageMask;

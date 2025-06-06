@@ -63,6 +63,30 @@ Mat aplyFilter(Volumetrics volumetrics, Mat processedSlice, std::string effectNa
         return processedSlice;
     }
 
+    if (effectName == "MeanFilter") {
+        // Usa tamaño de kernel por defecto = 5
+        processedSlice = volumetrics.aplyMeanFilter(processedSlice);
+        return processedSlice;
+    }
+
+    if (effectName == "GaussianFilter") {
+        // Usa kernelSize=5, sigmaX=1.0 por defecto
+        processedSlice = volumetrics.aplyGaussianFilter(processedSlice);
+        return processedSlice;
+    }
+
+    if (effectName == "MedianFilter") {
+        // Usa kernelSize por defecto = 5
+        processedSlice = volumetrics.aplyMedianFilter(processedSlice);
+        return processedSlice;
+    }
+
+    if (effectName == "BilateralFilter") {
+        // Usa diameter=9, sigmaColor=75.0, sigmaSpace=75.0 por defecto
+        processedSlice = volumetrics.aplyBilateralFilter(processedSlice);
+        return processedSlice;
+    }
+
     return processedSlice;
 }
 } // namespace Utils
