@@ -148,7 +148,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Guardar Imagen</string>
+     <string>Guardar Imagen y mostrar datos estadísticos</string>
     </property>
    </widget>
    <widget class="QLabel" name="lbSliceImageProcessed">

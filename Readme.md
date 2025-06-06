@@ -2,14 +2,18 @@
 
 Este proyecto utiliza un Makefile para compilar y ejecutar la aplicación.
 
-## Requisitos
+## Estructura del Proyecto
 
-* OpenCV
-* ITK
-* Qt
-* NIfTI
-* VNL
-* itksys
+* `src/`: Directorio que contiene los archivos fuente de la aplicación.
+    + `helpers/`: Directorio que contiene archivos de ayuda para la aplicación.
+        - `Volumetrics.cpp`: Archivo que contiene la implementación de la clase `Volumetrics`.
+    + `main.cpp`: Archivo que contiene la función principal de la aplicación.
+* `include/`: Directorio que contiene los archivos de cabecera de la aplicación.
+    + `Volumetrics.h`: Archivo que contiene la declaración de la clase `Volumetrics`.
+    + `MainWindow.h`: Archivo que contiene la declaración de la clase `MainWindow`.
+* `ui/`: Directorio que contiene los archivos de interfaz gráfica de usuario.
+    + `MainWindow.ui`: Archivo que contiene la definición de la interfaz gráfica de usuario.
+* `Makefile`: Archivo que contiene las instrucciones para compilar y ejecutar la aplicación.
 
 ## Compilación y Ejecución
 
@@ -21,8 +25,10 @@ Para compilar y ejecutar la aplicación, sigue los siguientes pasos:
 
 ## Opciones de Compilación
 
-* `make all`: Compila la aplicación con todas las dependencias (Qt, OpenCV, ITK, etc.).
-* `make main`: Compila la aplicación solo con las dependencias de OpenCV e ITK, sin Qt.
+* `make clean`: Elimina los archivo compilados anteriormente
+* `make`: Compila la aplicación con todas las dependencias (Qt, OpenCV, ITK, etc.).
+* `make run`: Ejecuta el programa
+
 
 ## Limpieza
 
