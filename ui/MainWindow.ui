@@ -89,7 +89,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Usar Imagen Destacada</string>
+     <string>Resaltar Imagen</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_2">

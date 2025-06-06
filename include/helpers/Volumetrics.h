@@ -15,16 +15,21 @@ class Volumetrics {
 
     bool loadVolumetric(std::string path, std::string type = "flair");
 
-    void setSliceAsMat(int sliceIndex);
-    void setSliceMaskAsMat(int sliceIndex);
+    void setSliceAsMat();
+    void setSliceMaskAsMat();
+    void setEffectName(std::string effectName);
+    void setSliceIndex(int index);
 
     cv::Mat getSliceAsMat();
-
     cv::Mat getSliceMaskAsMat();
+    size_t getDepth() const;
+    std::string getEffectName() const;
+    int getSliceIndex() const;
 
+
+    
+    // técnicas de visión artificial
     cv::Mat processSlice(cv::Mat sliceToProceess = cv::Mat());
-
-    // écnicas de visión artificial
 
     cv::Mat aplyThreshold(cv::Mat sliceProcessed = cv::Mat(), double umbral = 55.0);
 
@@ -44,4 +49,7 @@ class Volumetrics {
     
     cv::Mat slice;    
     cv::Mat sliceMask;
+
+    std::string effectName="";    
+    int sliceIndex = 0;
 };
