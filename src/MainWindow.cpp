@@ -48,6 +48,18 @@ MainWindow::MainWindow(QWidget *parent)
     ui->cbAplyEffect->addItem("Canny");
     ui->cbAplyEffect->addItem("Brightness");
 
+    // Filtros de suavizado añadidos
+    ui->cbAplyEffect->addItem("MeanFilter");
+    ui->cbAplyEffect->addItem("GaussianFilter");
+    ui->cbAplyEffect->addItem("MedianFilter");
+    ui->cbAplyEffect->addItem("BilateralFilter");
+
+    // Morfologicos
+    ui->cbAplyEffect->addItem("Erosion");
+    ui->cbAplyEffect->addItem("Dilation");
+    ui->cbAplyEffect->addItem("Opening");
+    ui->cbAplyEffect->addItem("Closing");
+
     //* Botones “Guardar Imagen” y “Generar Video” deshabilitados al inicio
     ui->btSaveImage->setEnabled(false);
     ui->btGenerateVideo->setEnabled(false);
@@ -82,7 +94,7 @@ void MainWindow::on_btLoadImage_clicked() {
         return;
     }
 
-    //Cargar volumen MÁSCARA
+    // Cargar volumen MÁSCARA
     bool okMask = volumetrics.loadVolumetric(paths.mask, "mask");
     if (!okMask) {
         ui->statusbar->showMessage("Error cargando MASK: " + QString::fromStdString(paths.mask));
@@ -184,7 +196,7 @@ void MainWindow::on_chUseImageProcessed_toggled(bool checked) {
         if (checked) {
             processedSlice = (volumetrics.getEffectName().empty()) ? volumetrics.processSlice() : Utils::aplyFilter(volumetrics, volumetrics.processSlice(), volumetrics.getEffectName());
         } else {
-            processedSlice = (volumetrics.getEffectName().empty()) ? volumetrics.getSliceAsMat() : Utils::aplyFilter(volumetrics, volumetrics.getSliceAsMat(), volumetrics.getEffectName());            
+            processedSlice = (volumetrics.getEffectName().empty()) ? volumetrics.getSliceAsMat() : Utils::aplyFilter(volumetrics, volumetrics.getSliceAsMat(), volumetrics.getEffectName());
         }
 
         showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);

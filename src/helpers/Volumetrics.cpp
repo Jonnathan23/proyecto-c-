@@ -22,7 +22,7 @@ Volumetrics::~Volumetrics() {}
 bool Volumetrics::loadVolumetric(string path, string type) {
     NiftiImageIOFactory::RegisterOneFactory();
 
-    //Definir el tipo de lector (imagen 3D float)
+    // Definir el tipo de lector (imagen 3D float)
     using ReaderType = ImageFileReader<VolumetricImageType>;
     ReaderType::Pointer reader = ReaderType::New();
 
@@ -258,6 +258,96 @@ Mat Volumetrics::adjustBrightness(Mat sliceProcessed) {
     return adjustedImage;
 }
 
+//* |------------| | Suavizado | |------------|
+
+/**
+ * @brief Aplica un filtro de promedio a la imagen
+ * @param sliceProcessed Slice procesado por el metodo principal
+ */
+Mat Volumetrics::aplyMeanFilter(Mat sliceProcessed, int kernelSize) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // Forzar tamaño impar mínimo de kernel
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    Mat result;
+    // blur() aplica promedio en cada vecindario de tamaño (kernelSize × kernelSize)
+    blur(imageToProcess, result, cv::Size(kernelSize, kernelSize));
+    return result;
+}
+
+/**
+ * @brief Aplica un filtro gaussiano a la imagen
+ * @param sliceProcessed Slice procesado por el metodo principal
+ */
+Mat Volumetrics::aplyGaussianFilter(Mat sliceProcessed, int kernelSize, double sigmaX) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // Forzar tamaño impar mínimo de kernel
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    Mat result;
+    // GaussianBlur(src, dst, Size(k,k), sigmaX, sigmaY=0, bordes por defecto)
+    GaussianBlur(imageToProcess, result, cv::Size(kernelSize, kernelSize), sigmaX);
+    return result;
+}
+
+/**
+ * @brief Aplica un filtro de mediana a la imagen
+ * @param sliceProcessed Slice procesado por el metodo principal
+ */
+Mat Volumetrics::aplyMedianFilter(Mat sliceProcessed, int kernelSize) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // Forzar tamaño impar mínimo de kernel (>=3)
+    if (kernelSize < 3) {
+        kernelSize = 3;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    Mat result;
+    // medianBlur() hace una ordenación de valores en la vecindad y elige la mediana
+    medianBlur(imageToProcess, result, kernelSize);
+    return result;
+}
+
+/** @brief Aplica un filtro bilateral a la imagen */
+Mat Volumetrics::aplyBilateralFilter(Mat sliceProcessed, int diameter, double sigmaColor, double sigmaSpace) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // diameter debe ser >=1
+    if (diameter < 1) {
+        diameter = 1;
+    }
+
+    Mat result;
+    // bilateralFilter(src, dst, d, sigmaColor, sigmaSpace)
+    bilateralFilter(imageToProcess, result, diameter, sigmaColor, sigmaSpace);
+    return result;
+}
+
 //* |------------| | Sets | |------------|
 
 /**
@@ -312,7 +402,7 @@ void Volumetrics::setSliceAsMat() {
         return;
     }
 
-    // 4) Convertir el resultado (ITK Image<float,2>) a Mat (float 2D)
+    // 4) Convertir el result (ITK Image<float,2>) a Mat (float 2D)
     auto itkSlice2D = extractFilter->GetOutput();
     auto region2D = itkSlice2D->GetLargestPossibleRegion();
     auto size2D = region2D.GetSize();
@@ -438,6 +528,120 @@ void Volumetrics::setSliceIndex(int index) {
  */
 void Volumetrics::setEffectName(string effectName) {
     this->effectName = effectName;
+}
+
+//* |------------| | Morfologicas | |------------|
+Mat Volumetrics::aplyErosion(Mat sliceProcessed, int kernelSize) {
+    // 1.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 1.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 1.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 1.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 1.5) Aplicar erosión
+    Mat result;
+    erode(imageToProcess, result, structElem);
+
+    return result;
+}
+
+/**
+ * @brief Aplica dilatación
+ */
+Mat Volumetrics::aplyDilation(Mat sliceProcessed, int kernelSize) {
+    // 2.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 2.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 2.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 2.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 2.5) Aplicar dilatación
+    Mat result;
+    dilate(imageToProcess, result, structElem);
+
+    return result;
+}
+
+/**
+ * @brief Aplica la técnica de apertura - erosión seguida de dilatación
+ */
+Mat Volumetrics::aplyOpening(Mat sliceProcessed, int kernelSize) {
+    // 3.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 3.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 3.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 3.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 3.5) Aplicar apertura (erosión + dilatación)
+    Mat result;
+    morphologyEx(imageToProcess, result, MORPH_OPEN, structElem);
+
+    return result;
+}
+
+/**
+ * @brief Cierre - dilatación seguida de erosión
+ */
+Mat Volumetrics::aplyClosing(Mat sliceProcessed, int kernelSize) {
+    // 4.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 4.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 4.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 4.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 4.5) Aplicar cierre (dilatación + erosión)
+    Mat result;
+    morphologyEx(imageToProcess, result, MORPH_CLOSE, structElem);
+
+    return result;
 }
 
 //* |------------| | Gets | |------------|

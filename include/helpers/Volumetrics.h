@@ -30,18 +30,24 @@ class Volumetrics {
     
     // técnicas de visión artificial
     cv::Mat processSlice(cv::Mat sliceToProceess = cv::Mat());
-
     cv::Mat aplyThreshold(cv::Mat sliceProcessed = cv::Mat(), double umbral = 55.0);
-
     cv::Mat aplyContratstStreching(cv::Mat sliceProcessed = cv::Mat());
-
     cv::Mat aplyUmbralBinary();
-
     cv::Mat aplyBitWiseOperation(cv::Mat sliceProcessed1 = cv::Mat(), std::string type = "AND");
-
     cv::Mat aplyCanny(cv::Mat sliceProcessed = cv::Mat());
-
     cv::Mat adjustBrightness(cv::Mat sliceProcessed = cv::Mat());
+
+    // Suavizado
+    cv::Mat aplyMeanFilter(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);
+    cv::Mat aplyGaussianFilter(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5, double sigmaX = 1.0);
+    cv::Mat aplyMedianFilter(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);
+    cv::Mat aplyBilateralFilter(cv::Mat sliceProcessed = cv::Mat(), int diameter = 9, double sigmaColor = 75.0, double sigmaSpace = 75.0);
+
+    // Morfologicas
+    cv::Mat aplyErosion(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);
+    cv::Mat aplyDilation(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);    
+    cv::Mat aplyOpening(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);
+    cv::Mat aplyClosing(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);
 
   private:
     VolumetricImagePointer volumetricImage;
