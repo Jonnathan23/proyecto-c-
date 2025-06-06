@@ -47,12 +47,18 @@ MainWindow::MainWindow(QWidget *parent)
     ui->cbAplyEffect->addItem("BitwiseXOR");
     ui->cbAplyEffect->addItem("Canny");
     ui->cbAplyEffect->addItem("Brightness");
-    
+
     // Filtros de suavizado añadidos
     ui->cbAplyEffect->addItem("MeanFilter");
     ui->cbAplyEffect->addItem("GaussianFilter");
     ui->cbAplyEffect->addItem("MedianFilter");
     ui->cbAplyEffect->addItem("BilateralFilter");
+
+    // Morfologicos
+    ui->cbAplyEffect->addItem("Erosion");
+    ui->cbAplyEffect->addItem("Dilation");
+    ui->cbAplyEffect->addItem("Opening");
+    ui->cbAplyEffect->addItem("Closing");
 
     //* Botones “Guardar Imagen” y “Generar Video” deshabilitados al inicio
     ui->btSaveImage->setEnabled(false);

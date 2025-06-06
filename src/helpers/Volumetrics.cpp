@@ -530,6 +530,120 @@ void Volumetrics::setEffectName(string effectName) {
     this->effectName = effectName;
 }
 
+//* |------------| | Morfologicas | |------------|
+Mat Volumetrics::aplyErosion(Mat sliceProcessed, int kernelSize) {
+    // 1.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 1.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 1.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 1.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 1.5) Aplicar erosión
+    Mat result;
+    erode(imageToProcess, result, structElem);
+
+    return result;
+}
+
+/**
+ * @brief Aplica dilatación
+ */
+Mat Volumetrics::aplyDilation(Mat sliceProcessed, int kernelSize) {
+    // 2.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 2.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 2.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 2.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 2.5) Aplicar dilatación
+    Mat result;
+    dilate(imageToProcess, result, structElem);
+
+    return result;
+}
+
+/**
+ * @brief Aplica la técnica de apertura - erosión seguida de dilatación
+ */
+Mat Volumetrics::aplyOpening(Mat sliceProcessed, int kernelSize) {
+    // 3.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 3.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 3.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 3.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 3.5) Aplicar apertura (erosión + dilatación)
+    Mat result;
+    morphologyEx(imageToProcess, result, MORPH_OPEN, structElem);
+
+    return result;
+}
+
+/**
+ * @brief Cierre - dilatación seguida de erosión
+ */
+Mat Volumetrics::aplyClosing(Mat sliceProcessed, int kernelSize) {
+    // 4.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 4.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 4.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 4.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 4.5) Aplicar cierre (dilatación + erosión)
+    Mat result;
+    morphologyEx(imageToProcess, result, MORPH_CLOSE, structElem);
+
+    return result;
+}
+
 //* |------------| | Gets | |------------|
 
 /**

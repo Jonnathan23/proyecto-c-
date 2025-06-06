@@ -87,6 +87,26 @@ Mat aplyFilter(Volumetrics volumetrics, Mat processedSlice, std::string effectNa
         return processedSlice;
     }
 
+    if (effectName == "Erosion") {
+        processedSlice = volumetrics.aplyErosion(processedSlice, 3);
+        return processedSlice;
+    }
+
+    if (effectName == "Dilation") {
+        processedSlice = volumetrics.aplyDilation(processedSlice, 3);
+        return processedSlice;
+    }
+
+    if (effectName == "Opening") {
+        processedSlice = volumetrics.aplyOpening(processedSlice, 3);
+        return processedSlice;
+    }
+
+    if (effectName == "Closing") {
+        processedSlice = volumetrics.aplyClosing(processedSlice, 3);
+        return processedSlice;
+    }
+
     return processedSlice;
 }
 } // namespace Utils
