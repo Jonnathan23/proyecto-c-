@@ -22,13 +22,13 @@ Volumetrics::~Volumetrics() {}
 bool Volumetrics::loadVolumetric(string path, string type) {
     NiftiImageIOFactory::RegisterOneFactory();
 
-    // 2) Definir el tipo de lector (imagen 3D float)
+    //Definir el tipo de lector (imagen 3D float)
     using ReaderType = ImageFileReader<VolumetricImageType>;
     ReaderType::Pointer reader = ReaderType::New();
 
     reader->SetFileName(path);
 
-    // 4) Intentar leer el volumen. Si falla, atrapar la excepción y retornar false.
+    // Intentar leer el volumen. Si falla, atrapar la excepción y retornar false.
     try {
         reader->Update();
     } catch (ExceptionObject &e) {
@@ -231,11 +231,11 @@ Mat Volumetrics::aplyCanny(Mat sliceProcessed) {
     Mat blurredSlice;
     GaussianBlur(grayImage, blurredSlice, cv::Size(5, 5), 1.5);
 
-    // 4) Definir umbrales para Canny
+    // Definir umbrales para Canny
     double lowerThreshold = 50.0;  // Umbral inferior
     double upperThreshold = 150.0; // Umbral superior
 
-    // 5) Aplicar detector de bordes Canny
+    // Aplicar detector de bordes Canny
     Mat edges;
     Canny(blurredSlice, edges, lowerThreshold, upperThreshold);
 
@@ -246,7 +246,7 @@ Mat Volumetrics::adjustBrightness(Mat sliceProcessed) {
 
     Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
 
-    if(imageToProcess.empty()) {
+    if (imageToProcess.empty()) {
         return Mat();
     }
 
@@ -262,7 +262,6 @@ Mat Volumetrics::adjustBrightness(Mat sliceProcessed) {
 
 /**
  * @brief Setear la región de un slice en Z = sliceIndex y lo guarda en this->slice
- * @param sliceIndex Índice Z del slice a extraer
  */
 void Volumetrics::setSliceAsMat() {
     if (!volumetricImage) {
@@ -283,16 +282,13 @@ void Volumetrics::setSliceAsMat() {
         return;
     }
 
-    // 2) Definir la región 3D para extraer un slice en Z = sliceIndex
+    // Definir la región 3D para extraer un slice en Z = sliceIndex
     ImageRegion<3> sliceRegion;
     {
         // Tomamos el índice y el tamaño de la región entera
         auto start3D = region3D.GetIndex();
         auto sizeRegion3D = region3D.GetSize();
 
-        // Vamos a extraer solamente ese corte:
-        // tamaño en Z = 0 (así ITK sabe que es 2D),
-        // índice Z = sliceIndex
         sizeRegion3D[2] = 0;
         start3D[2] = sliceIndex;
 
@@ -351,7 +347,6 @@ void Volumetrics::setSliceAsMat() {
 
 /**
  * @brief Extrae un slice del volumen de máscaras y lo guarda en this->sliceMask
- * @param sliceIndex Índice Z del slice a extraer
  */
 void Volumetrics::setSliceMaskAsMat() {
     // 1) Verificar que volumetricImageMask no sea nulo
@@ -431,38 +426,58 @@ void Volumetrics::setSliceMaskAsMat() {
     }
 }
 
+/**
+ * @brief Establece el sliceIndex
+ */
 void Volumetrics::setSliceIndex(int index) {
     this->sliceIndex = index;
 }
 
+/**
+ * @brief Establece el nombre de la tecnica de visión artificial
+ */
 void Volumetrics::setEffectName(string effectName) {
     this->effectName = effectName;
 }
 
 //* |------------| | Gets | |------------|
 
+/**
+ * @brief Devuelve la profundidad del volumen
+ */
 size_t Volumetrics::getDepth() const {
     if (!volumetricImage) {
         return 0;
     }
     auto region3D = volumetricImage->GetLargestPossibleRegion();
-    auto size3D   = region3D.GetSize();
+    auto size3D = region3D.GetSize();
     return size3D[2];
 }
 
-
+/**
+ * @brief Devuelve el slice
+ */
 Mat Volumetrics::getSliceAsMat() {
     return slice;
 }
 
+/**
+ * @brief Devuelve la sliceMask
+ */
 Mat Volumetrics::getSliceMaskAsMat() {
     return sliceMask;
 }
 
+/**
+ * @brief Devuelve el nombre de la tecnica de visión artificial que se está usando
+ */
 string Volumetrics::getEffectName() const {
     return effectName;
 }
 
+/**
+ * @brief Devuelve el sliceIndex
+ */
 int Volumetrics::getSliceIndex() const {
     return sliceIndex;
 }

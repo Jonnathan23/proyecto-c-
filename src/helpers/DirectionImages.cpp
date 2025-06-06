@@ -52,6 +52,9 @@ const string DirectionImages3::brats3Seg =
 
 
 //? |----------| | AllBratsMap | |----------|
+/**
+ * @brief Mapa de todas las imagenes de BraTS
+ */
 const std::map<std::string, BratsPaths> allBratsMap = {
     { "brats0",
       BratsPaths{

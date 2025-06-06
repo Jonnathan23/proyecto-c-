@@ -64,48 +64,48 @@ MainWindow::~MainWindow() {
  * @brief Función que se ejecuta cuando se pulsa el botón “CargarVolumen”
  */
 void MainWindow::on_btLoadImage_clicked() {
-    // 1) Obtener opción seleccionada (“brats0”, “brats2”, “brats3”)
+    // Obtener opción seleccionada (“brats0”, “brats2”, “brats3”)
     QString qOption = ui->cbImageBrats->currentText();
     string optionUser = qOption.toStdString();
 
-    // 2) Verificar que exista en el mapa global allBratsMap
+    // Verificar que exista en el mapa global allBratsMap
     if (allBratsMap.count(optionUser) == 0) {
         ui->statusbar->showMessage("Opción inválida: " + qOption);
         return;
     }
     BratsPaths paths = allBratsMap.at(optionUser);
 
-    // 3) Cargar volumen FLAIR
+    // Cargar volumen FLAIR
     bool okFlair = volumetrics.loadVolumetric(paths.standar, "flair");
     if (!okFlair) {
         ui->statusbar->showMessage("Error cargando FLAIR: " + QString::fromStdString(paths.standar));
         return;
     }
 
-    // 4) Cargar volumen MÁSCARA
+    //Cargar volumen MÁSCARA
     bool okMask = volumetrics.loadVolumetric(paths.mask, "mask");
     if (!okMask) {
         ui->statusbar->showMessage("Error cargando MASK: " + QString::fromStdString(paths.mask));
         return;
     }
 
-    // 5) Obtener profundidad total (cantidad de slices en Z)
+    // Obtener profundidad total (cantidad de slices en Z)
     size_t depth = volumetrics.getDepth();
     if (depth == 0) {
         ui->statusbar->showMessage("Volumen sin profundidad (depth = 0).");
         return;
     }
 
-    // 6) Configurar slider: rango [0 .. depth-1], habilitarlo y fijar valor 0
+    // Configurar slider: rango [0 .. depth-1], habilitarlo y fijar valor 0
     ui->slSliceNumber->setEnabled(true);
     ui->slSliceNumber->setMinimum(0);
     ui->slSliceNumber->setMaximum(static_cast<int>(depth) - 1);
     ui->slSliceNumber->setValue(0);
 
-    // 7) Mostrar “0” en la etiqueta lbSliceNum
+    // Mostrar “0” en la etiqueta lbSliceNum
     ui->lbSliceNum->setText("0");
 
-    // 8) Extraer y mostrar slice Z=0
+    // Extraer y mostrar slice Z=0
 
     volumetrics.setSliceAsMat();
     volumetrics.setSliceMaskAsMat();
@@ -113,12 +113,12 @@ void MainWindow::on_btLoadImage_clicked() {
     currentMask = volumetrics.getSliceMaskAsMat();
     showSliceOnLabel(currentSlice, ui->lbSliceImage);
 
-    // 9) Limpiar label procesado (aún no hay)
+    // Limpiar label procesado (aún no hay)
     ui->lbSliceImageProcessed->setText("Sin procesar");
     ui->lbSliceImageProcessed->setPixmap(QPixmap());
     processedSlice.release();
 
-    // 10) Habilitar botones de “Guardar Imagen” y “Generar Video”
+    // Habilitar botones de “Guardar Imagen” y “Generar Video”
     ui->btSaveImage->setEnabled(true);
     ui->btGenerateVideo->setEnabled(true);
 
@@ -143,7 +143,7 @@ void MainWindow::on_slSliceNumber_valueChanged(int value) {
     showSliceOnLabel(currentSlice, ui->lbSliceImage);
 
     // Si “Usar Imagen Destacada” está marcado, mostrar processedSlice
-    if (ui->chUseImageProcessed->isChecked() && !processedSlice.empty()) {
+    if (Utils::isChecked(ui) && !processedSlice.empty()) {
         showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
     } else {
         ui->lbSliceImageProcessed->setText("Sin procesar");
@@ -169,7 +169,7 @@ void MainWindow::on_cbAplyEffect_currentIndexChanged(int /*index*/) {
     QString fx = ui->cbAplyEffect->currentText();
     volumetrics.setEffectName(fx.toStdString());
 
-    processedSlice = ui->chUseImageProcessed->isChecked() ? volumetrics.processSlice() : volumetrics.getSliceAsMat();
+    processedSlice = Utils::isChecked(ui) ? volumetrics.processSlice() : volumetrics.getSliceAsMat();
     processedSlice = Utils::aplyFilter(volumetrics, processedSlice, volumetrics.getEffectName());
 
     showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
@@ -184,9 +184,9 @@ void MainWindow::on_chUseImageProcessed_toggled(bool checked) {
         if (checked) {
             processedSlice = (volumetrics.getEffectName().empty()) ? volumetrics.processSlice() : Utils::aplyFilter(volumetrics, volumetrics.processSlice(), volumetrics.getEffectName());
         } else {
-            processedSlice = (volumetrics.getEffectName().empty()) ? volumetrics.getSliceAsMat() : Utils::aplyFilter(volumetrics, volumetrics.getSliceAsMat(), volumetrics.getEffectName());
-            //processedSlice = volumetrics.getSliceAsMat();
+            processedSlice = (volumetrics.getEffectName().empty()) ? volumetrics.getSliceAsMat() : Utils::aplyFilter(volumetrics, volumetrics.getSliceAsMat(), volumetrics.getEffectName());            
         }
+
         showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
     }
 }
@@ -219,11 +219,7 @@ void MainWindow::on_btSaveImage_clicked() {
 
     // 3) Decidir qué imagen guardar: si el checkbox está marcado y processedSlice existe, uso ese
     Mat toSave;
-    if (ui->chUseImageProcessed->isChecked() && !processedSlice.empty()) {
-        toSave = processedSlice;
-    } else {
-        toSave = currentSlice;
-    }
+    toSave = (Utils::isChecked(ui) && !processedSlice.empty()) ? processedSlice : currentSlice;
 
     // 4) Formar nombre de archivo: “slice_<Z>.png”
     QString nombre = QString("slice_%1.png").arg(currentSliceIndex);
