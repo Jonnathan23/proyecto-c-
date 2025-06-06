@@ -23,8 +23,8 @@ MainWindow::MainWindow(QWidget *parent)
     // 1) Cargar la interfaz generada por uic
     ui->setupUi(this);
 
-    //|----------| |CONFIGURACIÓN INICIAL DE WIDGETS | |----------|    
-    //* ComboBox de Brats 
+    //|----------| |CONFIGURACIÓN INICIAL DE WIDGETS | |----------|
+    //* ComboBox de Brats
     ui->cbImageBrats->addItem("---- Seleccione un volumen ----");
     ui->cbImageBrats->addItem("brats0");
     ui->cbImageBrats->addItem("brats2");
@@ -59,7 +59,6 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow() {
     delete ui;
 }
-
 
 /**
  * @brief Función que se ejecuta cuando se pulsa el botón “CargarVolumen”
@@ -157,7 +156,6 @@ void MainWindow::on_slSliceNumber_valueChanged(int value) {
     showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
 }
 
-
 /**
  * @brief Función que se ejecuta cuando se cambia el combo cbAplyEffect
  * @param index Nuevo valor del combo
@@ -177,20 +175,21 @@ void MainWindow::on_cbAplyEffect_currentIndexChanged(int /*index*/) {
     showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
 }
 
-
 /**
  * @brief Función que se ejecuta cuando se marca/desmarca el checkbox chUseImageProcessed
  * @param checked Nuevo valor del checkbox
  */
 void MainWindow::on_chUseImageProcessed_toggled(bool checked) {
-    if (checked && !processedSlice.empty()) {                
+    if (!processedSlice.empty()) {
+        if (checked) {
+            processedSlice = (volumetrics.getEffectName().empty()) ? volumetrics.processSlice() : Utils::aplyFilter(volumetrics, volumetrics.processSlice(), volumetrics.getEffectName());
+        } else {
+            processedSlice = (volumetrics.getEffectName().empty()) ? volumetrics.getSliceAsMat() : Utils::aplyFilter(volumetrics, volumetrics.getSliceAsMat(), volumetrics.getEffectName());
+            //processedSlice = volumetrics.getSliceAsMat();
+        }
         showSliceOnLabel(processedSlice, ui->lbSliceImageProcessed);
-    } else {
-        ui->lbSliceImageProcessed->setText("Sin procesar");
-        ui->lbSliceImageProcessed->setPixmap(QPixmap());
     }
 }
-
 
 /**
  * @brief Función que se ejecuta cuando se pulsa el botón btSaveImage
@@ -240,9 +239,9 @@ void MainWindow::on_btSaveImage_clicked() {
     ui->statusbar->showMessage("Imagen guardada: " + fullPath);
 }
 
-//------------------------------------------------------------------------------
-// SLOT: Cuando se pulsa “Generar Video” (btGenerateVideo)
-//------------------------------------------------------------------------------
+/**
+ * @brief Función que se ejecuta cuando se pulsa el botón btGenerateVideo
+ */
 void MainWindow::on_btGenerateVideo_clicked() {
     // 1) Si no hay volumen cargado, salimos
     if (currentSlice.empty()) {
@@ -276,30 +275,90 @@ void MainWindow::on_btGenerateVideo_clicked() {
     QString fx = ui->cbAplyEffect->currentText();
     string effectName = fx.toStdString();
 
-    // 5) Iterar sobre cada slice Z = 0..depth-1
-    for (size_t z = 0; z < depth; ++z) {
-        // TODO Corregir la generacion para el video
-        // volumetrics.setSliceAsMat(static_cast<int>(z));
-        // volumetrics.setSliceMaskAsMat(static_cast<int>(z));
-        volumetrics.setSliceAsMat();
-        volumetrics.setSliceMaskAsMat();
-        Mat sliceOut = volumetrics.processSlice();
-        sliceOut = Utils::aplyFilter(volumetrics, sliceOut, effectName);
+    QString qNumberSlicesToVideo = ui->txtVideoImages->toPlainText();
+    string slicesToVideo = qNumberSlicesToVideo.toStdString();
+    numberSlicesToVideo = atoi(slicesToVideo.c_str()) / 2;
 
-        // 6) Nombre de archivo: “slice_000.png” (rellena con ceros)
-        QString nombre = QString("slice_%1.png").arg(z, 3, 10, QChar('0'));
-        QString fullPath = QDir(outputFolder).filePath(nombre);
+    int currentIndex = static_cast<int>(volumetrics.getSliceIndex());
+    int beginSlice = (currentIndex - numberSlicesToVideo) < 0 ? 0 : (currentIndex - numberSlicesToVideo);
+    int endSlice = (currentIndex + numberSlicesToVideo) > static_cast<int>(depth) ? static_cast<int>(depth) : (currentIndex + numberSlicesToVideo);
 
-        // TODO Los slices deben formar un video
+    // 6) Extraer la primera imagen para conocer tamaño (width, height)
+    volumetrics.setSliceIndex(beginSlice);
+    volumetrics.setSliceAsMat();
+    volumetrics.setSliceMaskAsMat();
+
+    Mat firstFrame = Utils::isChecked(ui) ? volumetrics.processSlice() : volumetrics.getSliceAsMat();
+    firstFrame = Utils::aplyFilter(volumetrics, firstFrame, effectName);
+
+    if (firstFrame.empty()) {
+        ui->statusbar->showMessage("No se pudo obtener el primer slice para el video.");
+        return;
     }
 
-    ui->statusbar->showMessage(
-        QString("Secuencia de %1 imágenes guardada en %2").arg(depth).arg(outputFolder));
+    // Asegurarse de que el primer frame esté en BGR (VideoWriter espera color)
+    cv::Mat colorFirst;
+    if (firstFrame.channels() == 1) {
+        cv::cvtColor(firstFrame, colorFirst, cv::COLOR_GRAY2BGR);
+    } else {
+        colorFirst = firstFrame;
+    }
+
+    int frameWidth = colorFirst.cols;
+    int frameHeight = colorFirst.rows;
+
+    // 7) Crear el archivo de video (.mp4)
+    //    - Usamos el codec H.264 (mp4v suele funcionar en la mayoría de instalaciones)
+    //    - Elegimos, por ejemplo, 10 fps (puedes modificar ese valor si lo deseas)
+    QString videoName = QDir(outputFolder).filePath("output_video.mp4");
+    std::string videoPath = videoName.toStdString();
+    int fourcc = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
+    double fps = 10.0;
+
+    cv::VideoWriter writer;
+    writer.open(videoPath, fourcc, fps, cv::Size(frameWidth, frameHeight), /*isColor=*/true);
+    if (!writer.isOpened()) {
+        ui->statusbar->showMessage("No se pudo crear el archivo de video: " + videoName);
+        return;
+    }
+
+    // 8) Iterar sobre cada slice y escribirlo al video
+    for (int index = beginSlice; index <= endSlice; ++index) {
+        volumetrics.setSliceIndex(index);
+        volumetrics.setSliceAsMat();
+        volumetrics.setSliceMaskAsMat();
+
+        cv::Mat sliceOut = Utils::isChecked(ui) ? volumetrics.processSlice() : volumetrics.getSliceAsMat();
+        sliceOut = Utils::aplyFilter(volumetrics, sliceOut, effectName);
+
+        if (sliceOut.empty()) {
+            continue;
+        }
+
+        // Convertir a BGR si es que está en gris
+        cv::Mat colorFrame;
+        if (sliceOut.channels() == 1) {
+            cv::cvtColor(sliceOut, colorFrame, cv::COLOR_GRAY2BGR);
+        } else {
+            colorFrame = sliceOut;
+        }
+
+        // Redimensionar sólo si difiere del tamaño inicial (opcional, pero mantendremos fijo)
+        if (colorFrame.cols != frameWidth || colorFrame.rows != frameHeight) {
+            cv::resize(colorFrame, colorFrame, cv::Size(frameWidth, frameHeight));
+        }
+
+        // Escribir el fotograma en el video
+        writer.write(colorFrame);
+    }
+
+    writer.release();
+    ui->statusbar->showMessage(QString("Video generado correctamente en %1").arg(videoName));
 }
 
-//------------------------------------------------------------------------------
-// Convierte Mat (CV_8UC1 o CV_8UC3) a QImage (copia) para mostrarlo en QLabel
-//------------------------------------------------------------------------------
+/**
+ * @brief Convierte Mat (CV_8UC1 o CV_8UC3) a QImage (copia) para mostrarlo en QLabel
+ */
 QImage MainWindow::cvMatToQImage(const Mat &mat) {
     if (mat.empty()) {
         return QImage();
@@ -320,9 +379,9 @@ QImage MainWindow::cvMatToQImage(const Mat &mat) {
     return QImage();
 }
 
-//------------------------------------------------------------------------------
-// Muestra un Mat en un QLabel, escalándolo para ajustarse al tamaño del label
-//------------------------------------------------------------------------------
+/**
+ * @brief Muestra un Mat en un QLabel, escalándolo para ajustarse al tamaño del label
+ */
 void MainWindow::showSliceOnLabel(const Mat &mat, QLabel *label) {
     QImage img = cvMatToQImage(mat);
     if (img.isNull()) {
