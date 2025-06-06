@@ -1,9 +1,31 @@
 #pragma once
 
 #include "helpers/Volumetrics.h"
+#include "helpers/DirectionImages.h"
+
 #include "ui_MainWindow.h" // Header generado por uic
-#include <QImage>
+#include "utils/Utils.h"
+
+#include <QDir>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QPixmap>
+
+#include <QFile>
+#include <QTextStream>
+#include <QDir>
+#include <QProcess>
+#include <QDialog>
+#include <QTabWidget>
+#include <QTextEdit>
 #include <QLabel>
+#include <QVBoxLayout>
+#include <QPushButton>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QDebug>  
+
+#include <QImage>
 #include <QMainWindow>
 #include <QString>
 #include <opencv2/opencv.hpp>

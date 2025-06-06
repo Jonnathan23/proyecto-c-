@@ -1,26 +1,5 @@
-// src/MainWindow.cpp
 #include "MainWindow.h"
-#include "helpers/DirectionImages.h"
-#include "utils/Utils.h"
 
-#include <QDir>
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QPixmap>
-
-#include <QFile>
-#include <QTextStream>
-#include <QDir>
-#include <QProcess>
-#include <QDialog>
-#include <QTabWidget>
-#include <QTextEdit>
-#include <QLabel>
-#include <QVBoxLayout>
-#include <QPushButton>
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QDebug>  
 
 using namespace cv;
 using namespace std;
