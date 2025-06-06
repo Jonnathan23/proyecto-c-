@@ -107,6 +107,11 @@ Mat aplyFilter(Volumetrics volumetrics, Mat processedSlice, std::string effectNa
         return processedSlice;
     }
 
+    if (effectName == "HistogramEqualization") {
+        processedSlice = volumetrics.aplyHistogramEqualization(processedSlice);
+        return processedSlice;
+    }
+
     return processedSlice;
 }
 } // namespace Utils

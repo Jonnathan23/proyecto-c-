@@ -18,7 +18,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
       currentSliceIndex(0),
-      outputFolder("output") // aún no elegimos carpeta de salida
+      outputFolder("output")
 {
     // 1) Cargar la interfaz generada por uic
     ui->setupUi(this);
@@ -54,11 +54,14 @@ MainWindow::MainWindow(QWidget *parent)
     ui->cbAplyEffect->addItem("MedianFilter");
     ui->cbAplyEffect->addItem("BilateralFilter");
 
-    // Morfologicos
+    // Morfologicas
     ui->cbAplyEffect->addItem("Erosion");
     ui->cbAplyEffect->addItem("Dilation");
     ui->cbAplyEffect->addItem("Opening");
     ui->cbAplyEffect->addItem("Closing");
+
+    //histograma
+    ui->cbAplyEffect->addItem("HistogramEqualization");
 
     //* Botones “Guardar Imagen” y “Generar Video” deshabilitados al inicio
     ui->btSaveImage->setEnabled(false);

@@ -49,6 +49,8 @@ class Volumetrics {
     cv::Mat aplyOpening(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);
     cv::Mat aplyClosing(cv::Mat sliceProcessed = cv::Mat(), int kernelSize = 5);
 
+    //histograma
+    cv::Mat aplyHistogramEqualization(cv::Mat sliceProcessed = cv::Mat());
   private:
     VolumetricImagePointer volumetricImage;
     VolumetricImagePointer volumetricImageMask;

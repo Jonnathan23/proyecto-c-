@@ -644,6 +644,49 @@ Mat Volumetrics::aplyClosing(Mat sliceProcessed, int kernelSize) {
     return result;
 }
 
+//* |------------| | Histograma | |------------|
+/**
+ * @brief Aplica ecualización de histograma
+ */
+cv::Mat Volumetrics::aplyHistogramEqualization(cv::Mat sliceProcessed) {
+    cv::Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return cv::Mat();
+    }
+
+    // Caso 1: imagen de un solo canal (grises)
+    if (imageToProcess.channels() == 1) {
+        cv::Mat equalized;
+        // equalizeHist opera únicamente sobre imágenes CV_8UC1
+        cv::equalizeHist(imageToProcess, equalized);
+        return equalized;
+    }
+
+    // Caso 2: imagen a color (3 canales BGR)
+    
+    //    Convertimos a espacio YCrCb para ecualizar la luminancia (canal Y)
+    cv::Mat imageYCrCb;
+    cv::cvtColor(imageToProcess, imageYCrCb, cv::COLOR_BGR2YCrCb);
+
+    // Separamos los tres canales: Y, Cr y Cb
+    std::vector<cv::Mat> canales(3);
+    cv::split(imageYCrCb, canales); // canales[0] = Y, [1]=Cr, [2]=Cb
+
+    // Ecualizamos el canal de luminancia (Y)
+    cv::equalizeHist(canales[0], canales[0]);
+
+    // Volvemos a mezclar los canales YCrCb (con Y ecualizado)
+    cv::Mat merged;
+    cv::merge(canales, merged);
+
+    // Convertir de nuevo a BGR
+    cv::Mat resultBGR;
+    cv::cvtColor(merged, resultBGR, cv::COLOR_YCrCb2BGR);
+
+    return resultBGR;
+}
+
 //* |------------| | Gets | |------------|
 
 /**
