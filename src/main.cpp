@@ -20,21 +20,21 @@ int main() {
         cerr << "Opción inválida: " << optionUser << endl;
         return EXIT_FAILURE;
     }
-    // 3) Obtener copia del struct con las rutas
+    
     BratsPaths paths = allBratsMap.at(optionUser);
 
     cout << "Rutas cargadas: "<<paths.standar << endl;
 
     Volumetrics volumetrics;
 
-    // 4) Cargar la imagen “flair”
+    
     if (!volumetrics.loadVolumetric(paths.standar, "flair")) {
         cerr << "Error al cargar FLAIR: " << paths.standar << endl;
         return EXIT_FAILURE;
     }
     cout << "FLAIR cargado: " << paths.mask << endl;
 
-    // 5) Cargar la máscara “seg”
+    
     if (!volumetrics.loadVolumetric(paths.mask, "mask")) {
         cerr << "Error al cargar MÁSCARA: " << paths.mask << endl;
         return EXIT_FAILURE;

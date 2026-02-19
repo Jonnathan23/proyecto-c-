@@ -24,7 +24,7 @@ class Volumetrics {
 
     cv::Mat processSlice();
 
-    // TODO: añadir filtros al slices
+    
 
   private:
     VolumetricImagePointer volumetricImage;
