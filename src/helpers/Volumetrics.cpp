@@ -13,16 +13,22 @@ using namespace cv;
 Volumetrics::Volumetrics() {}
 Volumetrics::~Volumetrics() {}
 
+/**
+ * @brief Cargar un volumen NIfTI
+ * @param path Ruta del volumen NIfTI
+ * @param type Tipo de volumen a cargar
+ * @return true si se pudo cargar el volumen, false si no
+ */
 bool Volumetrics::loadVolumetric(string path, string type) {
     NiftiImageIOFactory::RegisterOneFactory();
 
-    // 2) Definir el tipo de lector (imagen 3D float)
+    // Definir el tipo de lector (imagen 3D float)
     using ReaderType = ImageFileReader<VolumetricImageType>;
     ReaderType::Pointer reader = ReaderType::New();
 
     reader->SetFileName(path);
 
-    // 4) Intentar leer el volumen. Si falla, atrapar la excepción y retornar false.
+    // Intentar leer el volumen. Si falla, atrapar la excepción y retornar false.
     try {
         reader->Update();
     } catch (ExceptionObject &e) {
@@ -39,14 +45,20 @@ bool Volumetrics::loadVolumetric(string path, string type) {
     return true;
 }
 
-Mat Volumetrics::processSlice() {
+/**
+ * @brief Procesar un slice resaltando en color la zona afectada, metodo principal
+ * @return Mat con el slice resaltado
+ */
+Mat Volumetrics::processSlice(Mat sliceToProcess) {
     if (slice.empty() || sliceMask.empty()) {
         cerr << "Volumetrics::processSlice: slice o sliceMask vacíos.\n";
         return Mat();
     }
 
+    Mat sliceProcessed = (sliceToProcess.empty()) ? slice.clone() : sliceToProcess.clone();
+
     Mat colorSlice;
-    cvtColor(slice, colorSlice, COLOR_GRAY2BGR);
+    cvtColor(sliceProcessed, colorSlice, COLOR_GRAY2BGR);
 
     Mat maksFloat;
     sliceMask.convertTo(maksFloat, CV_32F, 1.0f / 255.0f);
@@ -78,9 +90,270 @@ Mat Volumetrics::processSlice() {
     return colorSlice;
 }
 
-//* Sets
+/**
+ * @brief Aplicar umbral a un slice
+ * @param sliceProcessed Slice procesado por el metodo principal
+ * @param umbral Umbral a aplicar
+ */
+Mat Volumetrics::aplyThreshold(cv::Mat sliceProcessed, double umbral) {
 
-void Volumetrics::setSliceAsMat(int sliceIndex) {
+    Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
+    Mat grayImage;
+    Mat thresholded;
+
+    imageToProcess.channels() == 3 ? cvtColor(imageToProcess, grayImage, COLOR_BGR2GRAY) : imageToProcess.copyTo(grayImage);
+
+    threshold(grayImage, thresholded, umbral, 255, THRESH_BINARY);
+    return thresholded;
+}
+
+/**
+ * @brief Aplicar umbral binario a un slice
+ */
+Mat Volumetrics::aplyUmbralBinary() {
+    Mat imageToProcess = sliceMask.clone();
+
+    if (imageToProcess.channels() == 1) {
+        Mat tmp;
+        cvtColor(imageToProcess, tmp, COLOR_GRAY2BGR);
+        imageToProcess = tmp;
+    }
+
+    Mat imageHSV;
+    cvtColor(imageToProcess, imageHSV, COLOR_BGR2HSV);
+
+    Scalar lowerBoundHSV(0, 0, 60);
+    Scalar upperBoundHSV(180, 30, 70);
+
+    Mat maskBinary;
+    inRange(imageHSV, lowerBoundHSV, upperBoundHSV, maskBinary);
+
+    // TODO: Redactar en el informe que si devuelve una imagen negra no hay zona "Muerta"
+
+    return maskBinary;
+}
+
+Mat Volumetrics::aplyContratstStreching(Mat sliceProcessed) {
+
+    Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    vector<Mat> separateChannels;
+
+    imageToProcess.channels() == 1 ? separateChannels.push_back(imageToProcess) : split(imageToProcess, separateChannels);
+
+    for (size_t i = 0; i < separateChannels.size(); i++) {
+        double minVal = 0.0, maxVal = 0.0;
+        minMaxLoc(separateChannels[i], &minVal, &maxVal);
+
+        if (minVal == maxVal) {
+            continue;
+        }
+
+        double escala = 255.0 / (maxVal - minVal);
+        double desplazamiento = -minVal * escala;
+
+        Mat canalStretched;
+        separateChannels[i].convertTo(canalStretched, CV_8U, escala, desplazamiento);
+
+        // Reemplazamos el canal original por la versión estirada
+        separateChannels[i] = canalStretched;
+    }
+
+    // Reconstruir la imagen final a partir de esos canales
+    Mat finalImage;
+    if (separateChannels.size() == 1) {
+        // Solo había un canal (gris)
+        finalImage = separateChannels[0];
+    } else {
+        // Volvemos a mezclar B, G y R
+        merge(separateChannels, finalImage);
+    }
+
+    return finalImage;
+}
+
+Mat Volumetrics::aplyBitWiseOperation(Mat sliceProcessed1, string type) {
+
+    Mat imageToProcess = (sliceProcessed1.empty()) ? slice.clone() : sliceProcessed1.clone();
+
+    if (imageToProcess.empty() || sliceMask.empty()) {
+        return Mat();
+    }
+
+    if (imageToProcess.channels() == 1) {
+        cvtColor(imageToProcess, imageToProcess, COLOR_GRAY2BGR);
+    }
+
+    Mat maskColor = sliceMask.clone();
+    if (maskColor.channels() == 1) {
+        cvtColor(maskColor, maskColor, COLOR_GRAY2BGR);
+    }
+
+    Mat result;
+    if (type == "NOT") {
+        bitwise_not(imageToProcess, result);
+        return result;
+    }
+
+    if (type == "AND") {
+        bitwise_and(imageToProcess, maskColor, result);
+        return result;
+    }
+
+    if (type == "OR") {
+        bitwise_or(imageToProcess, maskColor, result);
+        return result;
+    }
+
+    bitwise_xor(imageToProcess, maskColor, result);
+    return result;
+}
+
+Mat Volumetrics::aplyCanny(Mat sliceProcessed) {
+    Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    Mat grayImage;
+
+    if (imageToProcess.channels() == 1) {
+        cvtColor(imageToProcess, grayImage, COLOR_GRAY2BGR);
+    } else {
+        grayImage = imageToProcess.clone();
+    }
+
+    Mat blurredSlice;
+    GaussianBlur(grayImage, blurredSlice, cv::Size(5, 5), 1.5);
+
+    // Definir umbrales para Canny
+    double lowerThreshold = 50.0;  // Umbral inferior
+    double upperThreshold = 150.0; // Umbral superior
+
+    // Aplicar detector de bordes Canny
+    Mat edges;
+    Canny(blurredSlice, edges, lowerThreshold, upperThreshold);
+
+    return edges;
+}
+
+Mat Volumetrics::adjustBrightness(Mat sliceProcessed) {
+
+    Mat imageToProcess = (sliceProcessed.empty()) ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    int valueBrightness = 50;
+
+    Mat adjustedImage;
+    addWeighted(imageToProcess, 1.0, imageToProcess, 0.0, valueBrightness, adjustedImage);
+
+    return adjustedImage;
+}
+
+//* |------------| | Suavizado | |------------|
+
+/**
+ * @brief Aplica un filtro de promedio a la imagen
+ * @param sliceProcessed Slice procesado por el metodo principal
+ */
+Mat Volumetrics::aplyMeanFilter(Mat sliceProcessed, int kernelSize) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // Forzar tamaño impar mínimo de kernel
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    Mat result;
+    // blur() aplica promedio en cada vecindario de tamaño (kernelSize × kernelSize)
+    blur(imageToProcess, result, cv::Size(kernelSize, kernelSize));
+    return result;
+}
+
+/**
+ * @brief Aplica un filtro gaussiano a la imagen
+ * @param sliceProcessed Slice procesado por el metodo principal
+ */
+Mat Volumetrics::aplyGaussianFilter(Mat sliceProcessed, int kernelSize, double sigmaX) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // Forzar tamaño impar mínimo de kernel
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    Mat result;
+    // GaussianBlur(src, dst, Size(k,k), sigmaX, sigmaY=0, bordes por defecto)
+    GaussianBlur(imageToProcess, result, cv::Size(kernelSize, kernelSize), sigmaX);
+    return result;
+}
+
+/**
+ * @brief Aplica un filtro de mediana a la imagen
+ * @param sliceProcessed Slice procesado por el metodo principal
+ */
+Mat Volumetrics::aplyMedianFilter(Mat sliceProcessed, int kernelSize) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // Forzar tamaño impar mínimo de kernel (>=3)
+    if (kernelSize < 3) {
+        kernelSize = 3;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    Mat result;
+    // medianBlur() hace una ordenación de valores en la vecindad y elige la mediana
+    medianBlur(imageToProcess, result, kernelSize);
+    return result;
+}
+
+/** @brief Aplica un filtro bilateral a la imagen */
+Mat Volumetrics::aplyBilateralFilter(Mat sliceProcessed, int diameter, double sigmaColor, double sigmaSpace) {
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // diameter debe ser >=1
+    if (diameter < 1) {
+        diameter = 1;
+    }
+
+    Mat result;
+    // bilateralFilter(src, dst, d, sigmaColor, sigmaSpace)
+    bilateralFilter(imageToProcess, result, diameter, sigmaColor, sigmaSpace);
+    return result;
+}
+
+//* |------------| | Sets | |------------|
+
+/**
+ * @brief Setear la región de un slice en Z = sliceIndex y lo guarda en this->slice
+ */
+void Volumetrics::setSliceAsMat() {
     if (!volumetricImage) {
         cerr << "Volumetrics::setSliceAsMat: volumetricImage no está cargado.\n";
         slice = Mat(); // slice vacío
@@ -99,16 +372,13 @@ void Volumetrics::setSliceAsMat(int sliceIndex) {
         return;
     }
 
-    // 2) Definir la región 3D para extraer un slice en Z = sliceIndex
+    // Definir la región 3D para extraer un slice en Z = sliceIndex
     ImageRegion<3> sliceRegion;
     {
         // Tomamos el índice y el tamaño de la región entera
         auto start3D = region3D.GetIndex();
         auto sizeRegion3D = region3D.GetSize();
 
-        // Vamos a extraer solamente ese corte:
-        // tamaño en Z = 0 (así ITK sabe que es 2D),
-        // índice Z = sliceIndex
         sizeRegion3D[2] = 0;
         start3D[2] = sliceIndex;
 
@@ -132,7 +402,7 @@ void Volumetrics::setSliceAsMat(int sliceIndex) {
         return;
     }
 
-    // 4) Convertir el resultado (ITK Image<float,2>) a Mat (float 2D)
+    // 4) Convertir el result (ITK Image<float,2>) a Mat (float 2D)
     auto itkSlice2D = extractFilter->GetOutput();
     auto region2D = itkSlice2D->GetLargestPossibleRegion();
     auto size2D = region2D.GetSize();
@@ -165,7 +435,10 @@ void Volumetrics::setSliceAsMat(int sliceIndex) {
     }
 }
 
-void Volumetrics::setSliceMaskAsMat(int sliceIndex) {
+/**
+ * @brief Extrae un slice del volumen de máscaras y lo guarda en this->sliceMask
+ */
+void Volumetrics::setSliceMaskAsMat() {
     // 1) Verificar que volumetricImageMask no sea nulo
     if (!volumetricImageMask) {
         cerr << "Volumetrics::setSliceMaskAsMat: volumetricImageMask no está cargado.\n";
@@ -243,12 +516,263 @@ void Volumetrics::setSliceMaskAsMat(int sliceIndex) {
     }
 }
 
-//* Gets
+/**
+ * @brief Establece el sliceIndex
+ */
+void Volumetrics::setSliceIndex(int index) {
+    this->sliceIndex = index;
+}
 
+/**
+ * @brief Establece el nombre de la tecnica de visión artificial
+ */
+void Volumetrics::setEffectName(string effectName) {
+    this->effectName = effectName;
+}
+
+//* |------------| | Morfologicas | |------------|
+Mat Volumetrics::aplyErosion(Mat sliceProcessed, int kernelSize) {
+    // 1.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 1.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 1.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 1.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 1.5) Aplicar erosión
+    Mat result;
+    erode(imageToProcess, result, structElem);
+
+    return result;
+}
+
+/**
+ * @brief Aplica dilatación
+ */
+Mat Volumetrics::aplyDilation(Mat sliceProcessed, int kernelSize) {
+    // 2.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 2.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 2.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 2.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 2.5) Aplicar dilatación
+    Mat result;
+    dilate(imageToProcess, result, structElem);
+
+    return result;
+}
+
+/**
+ * @brief Aplica la técnica de apertura - erosión seguida de dilatación
+ */
+Mat Volumetrics::aplyOpening(Mat sliceProcessed, int kernelSize) {
+    // 3.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 3.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 3.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 3.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 3.5) Aplicar apertura (erosión + dilatación)
+    Mat result;
+    morphologyEx(imageToProcess, result, MORPH_OPEN, structElem);
+
+    return result;
+}
+
+/**
+ * @brief Cierre - dilatación seguida de erosión
+ */
+Mat Volumetrics::aplyClosing(Mat sliceProcessed, int kernelSize) {
+    // 4.1) Seleccionar la imagen a procesar
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 4.2) Si está vacía, retorno Mat vacía
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 4.3) Asegurar que kernelSize sea impar y ≥ 1
+    if (kernelSize < 1) {
+        kernelSize = 1;
+    }
+    if (kernelSize % 2 == 0) {
+        kernelSize += 1;
+    }
+
+    // 4.4) Crear elemento estructurante rectangular
+    Mat structElem = getStructuringElement(MORPH_RECT, cv::Size(kernelSize, kernelSize), cv::Point(-1, -1));
+    // 4.5) Aplicar cierre (dilatación + erosión)
+    Mat result;
+    morphologyEx(imageToProcess, result, MORPH_CLOSE, structElem);
+
+    return result;
+}
+
+//* |------------| | Histograma | |------------|
+/**
+ * @brief Aplica ecualización de histograma
+ */
+cv::Mat Volumetrics::aplyHistogramEqualization(cv::Mat sliceProcessed) {
+    cv::Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    if (imageToProcess.empty()) {
+        return cv::Mat();
+    }
+
+    // Caso 1: imagen de un solo canal (grises)
+    if (imageToProcess.channels() == 1) {
+        cv::Mat equalized;
+        // equalizeHist opera únicamente sobre imágenes CV_8UC1
+        cv::equalizeHist(imageToProcess, equalized);
+        return equalized;
+    }
+
+    // Caso 2: imagen a color (3 canales BGR)
+
+    //    Convertimos a espacio YCrCb para ecualizar la luminancia (canal Y)
+    cv::Mat imageYCrCb;
+    cv::cvtColor(imageToProcess, imageYCrCb, cv::COLOR_BGR2YCrCb);
+
+    // Separamos los tres canales: Y, Cr y Cb
+    std::vector<cv::Mat> canales(3);
+    cv::split(imageYCrCb, canales); // canales[0] = Y, [1]=Cr, [2]=Cb
+
+    // Ecualizamos el canal de luminancia (Y)
+    cv::equalizeHist(canales[0], canales[0]);
+
+    // Volvemos a mezclar los canales YCrCb (con Y ecualizado)
+    cv::Mat merged;
+    cv::merge(canales, merged);
+
+    // Convertir de nuevo a BGR
+    cv::Mat resultBGR;
+    cv::cvtColor(merged, resultBGR, cv::COLOR_YCrCb2BGR);
+
+    return resultBGR;
+}
+
+//* |------------| | Investigado | |------------|
+Mat Volumetrics::aplyEmbossFilter(Mat sliceProcessed) {
+    // 1) Seleccionar la imagen a procesar (si sliceProcessed está vacío, usamos slice)
+    Mat imageToProcess = sliceProcessed.empty() ? slice.clone() : sliceProcessed.clone();
+
+    // 2) Si no hay imagen, devolvemos Mat vacío
+    if (imageToProcess.empty()) {
+        return Mat();
+    }
+
+    // 3) Definir el kernel de Emboss (relieve)
+    //    [ -2 -1  0 ]
+    //    [ -1  1  1 ]
+    //    [  0  1  2 ]
+    Mat embossKernel = (Mat_<float>(3, 3) << -2, -1, 0,
+                            -1, 1, 1,
+                            0, 1, 2);
+
+    // 4) Crear imagen de salida
+    Mat result;
+
+    // 5) Si la imagen tiene un canal (grises), aplicamos filter2D directamente
+    if (imageToProcess.channels() == 1) {
+        filter2D(imageToProcess, result, CV_8U, embossKernel);
+        // Opcional: sumar 128 para centrar el valor en 128 y ver relieve en grises medios.
+        // Esto evita que los valores negativos queden en cero puro.
+        result += 128;
+        return result;
+    }
+
+    // 6) Si la imagen es color (3 canales BGR), aplicamos emboss en cada canal
+    std::vector<Mat> canales(3);
+    split(imageToProcess, canales); // Separa B, G, R
+
+    for (int i = 0; i < 3; i++) {
+        Mat canalEmboss;
+        filter2D(canales[i], canalEmboss, CV_32F, embossKernel);
+        // Convertir a 8 bits con saturación:
+        canalEmboss.convertTo(canalEmboss, CV_8U);
+        // Opcional: añadir 128 para centrar
+        canalEmboss += 128;
+        canales[i] = canalEmboss;
+    }
+
+    merge(canales, result);
+    return result;
+}
+
+//* |------------| | Gets | |------------|
+
+/**
+ * @brief Devuelve la profundidad del volumen
+ */
+size_t Volumetrics::getDepth() const {
+    if (!volumetricImage) {
+        return 0;
+    }
+    auto region3D = volumetricImage->GetLargestPossibleRegion();
+    auto size3D = region3D.GetSize();
+    return size3D[2];
+}
+
+/**
+ * @brief Devuelve el slice
+ */
 Mat Volumetrics::getSliceAsMat() {
     return slice;
 }
 
+/**
+ * @brief Devuelve la sliceMask
+ */
 Mat Volumetrics::getSliceMaskAsMat() {
     return sliceMask;
+}
+
+/**
+ * @brief Devuelve el nombre de la tecnica de visión artificial que se está usando
+ */
+string Volumetrics::getEffectName() const {
+    return effectName;
+}
+
+/**
+ * @brief Devuelve el sliceIndex
+ */
+int Volumetrics::getSliceIndex() const {
+    return sliceIndex;
 }

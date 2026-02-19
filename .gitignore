@@ -1,7 +1,8 @@
 .bin
 coreTest
 
-
+venv/
+tmp/
 
 errors.txt
 
@@ -10,7 +11,7 @@ errors.txt
 *.swp
 *.swo
 
-
+output/
 .vscode/
 .idea/
 *.user
